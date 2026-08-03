@@ -1,0 +1,2 @@
+@flarenetwork/flare-periphery-contracts/=lib/flare-foundry-periphery-package/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
