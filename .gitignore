@@ -1,32 +1,35 @@
-# Compiler files
-cache/
+# Compiler output
 out/
-
-# Ignores development broadcast logs
-!/broadcast
-/broadcast/*/31337/
-/broadcast/**/dry-run/
-
-# Docs
-docs/
-
-# Dotenv file
-.env
-.env.*
-!.env.example
+cache/
+broadcast/
 
 # Node
 node_modules/
+.next/
 
-# Ralph runtime state
-.ralph/.*
-.ralph/.call_count
-.ralph/.circuit_breaker_state
-.ralph/.last_reset
-.ralph/.claude_session_id
-.ralph/.exit_signals
-.ralph/.loop_start_sha
-.ralph/.ralph_session
-.ralph/.token_count
-.ralph/progress.json
-.ralph/status.json
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ralph runtime
+.ralph/state/
+.ralph/monitor/
+
+# Coverage
+lcov.info
+coverage/
+
+# Evidence (binary files, screenshots)
+evidence/screenshots/
+evidence/*.png
+evidence/*.jpg
+evidence/*.mp4
