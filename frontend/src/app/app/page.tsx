@@ -43,6 +43,10 @@ export default function AppPage() {
   const txError = depositError || requestError || drawError || withdrawError || registerError || approveError;
 
   const [xrplAddress, setXrplAddress] = useState("");
+  const [fccJson, setFccJson] = useState("");
+
+  // Submit eligibility attestation
+  const { writeContract: submitEligibilityTx, isPending: isSubmitting } = useWriteContract();
 
   // Read the borrower's XRPL binding
   const { data: xrplBindingRaw } = useReadContract({
@@ -112,6 +116,33 @@ export default function AppPage() {
       functionName: "approve",
       args: [vaultAddress, parseUnits(loanAmount, 6)],
     });
+  };
+
+  const handleSubmitEligibility = (loanId: bigint) => {
+    if (!fccJson) return;
+    try {
+      const att = JSON.parse(fccJson);
+      submitEligibilityTx({
+        address: vaultAddress,
+        abi: CREDIT_GATE_ABI,
+        functionName: "submitEligibility",
+        args: [
+          loanId,
+          {
+            borrower: att.borrower,
+            limit: BigInt(att.limit),
+            expiry: BigInt(att.expiry),
+            nonce: att.nonce,
+            revocationVersion: att.revocationVersion,
+            v: att.v,
+            r: att.r,
+            s: att.s,
+          },
+        ],
+      });
+    } catch (e) {
+      console.error("Invalid FCC JSON:", e);
+    }
   };
 
   const handleRequestEligibility = (loanId: bigint) => {
@@ -296,6 +327,37 @@ export default function AppPage() {
                     : isApproving
                     ? "Approving..."
                     : "Approve USDT0 for Vault"}
+                </button>
+              </div>
+            </div>
+
+            {/* FCC Attestation Panel */}
+            <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+              <h2 className="text-xl font-semibold mb-4">Submit FCC Attestation</h2>
+              <div className="space-y-3">
+                <div className="text-xs text-gray-400">
+                  After requesting eligibility, the FCC handler (:8080) evaluates your credit and returns a signed attestation JSON. Paste it below.
+                </div>
+                <input
+                  type="text"
+                  value={fccJson}
+                  onChange={(e) => setFccJson(e.target.value)}
+                  placeholder='{"borrower":"0x...","limit":"100000000","expiry":"...","nonce":0,"revocationVersion":0,"v":27,"r":"0x...","s":"0x..."}'
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
+                />
+                <input
+                  type="number"
+                  value={selectedLoanId}
+                  onChange={(e) => setSelectedLoanId(e.target.value)}
+                  placeholder="Loan ID"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 text-sm"
+                />
+                <button
+                  onClick={() => selectedLoanId && handleSubmitEligibility(BigInt(selectedLoanId))}
+                  disabled={isSubmitting || !selectedLoanId || !fccJson}
+                  className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 rounded-lg py-2 font-semibold transition-colors text-sm"
+                >
+                  {isSubmitting ? "Submitting..." : "Submit Eligibility"}
                 </button>
               </div>
             </div>
