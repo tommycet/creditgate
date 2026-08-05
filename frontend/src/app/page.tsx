@@ -42,9 +42,9 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
           {[
             { step: "1", title: "Deposit FXRP", desc: "Lock FXRP collateral on Flare Coston2" },
-            { step: "2", title: "FCC Evaluates", desc: "Private credit evaluation via TEE" },
-            { step: "3", title: "Draw USDT0", desc: "Borrow against collateral ratio" },
-            { step: "4", title: "Repay on XRPL", desc: "FDC verifies repayment, releases collateral" },
+            { step: "2", title: "Bind XRPL + FCC", desc: "Register repayment address; TEE signs private credit decision" },
+            { step: "3", title: "Draw USDT0", desc: "Borrow against collateral ratio (FTSO-priced)" },
+            { step: "4", title: "Repay on XRPL", desc: "FDC verifies repayment proof, releases collateral" },
           ].map((item) => (
             <div key={item.step} className="text-center">
               <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">

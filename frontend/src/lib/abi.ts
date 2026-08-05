@@ -15,6 +15,11 @@ export const CREDIT_GATE_ABI = [
   "function getBorrowerLoanIds(address) view returns (uint256[])",
   "function borrowerXRPLAddressHash(address) view returns (bytes32)",
 
+  // ERC20 (FXRP / USDT0)
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address,address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)",
+
   // Mutating functions
   "function depositCollateral(uint256 amount) returns (uint256 loanId)",
   "function registerXRPLAddress(bytes32 xrplAddressHash)",

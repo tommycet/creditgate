@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAccount, useWriteContract, useReadContract } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { parseUnits, formatUnits } from "viem";
+import { parseUnits, formatUnits, keccak256, stringToHex } from "viem";
 import { CREDIT_GATE_CONFIG, LOAN_STATES } from "@/config/contract";
 import { CREDIT_GATE_ABI } from "@/lib/abi";
 
@@ -37,6 +37,30 @@ export default function AppPage() {
   const { writeContract: requestEligibility, isPending: isRequesting } = useWriteContract();
   const { writeContract: drawLoan, isPending: isDrawing } = useWriteContract();
   const { writeContract: withdrawCollateral, isPending: isWithdrawing } = useWriteContract();
+  const { writeContract: registerXRPL, isPending: isRegistering } = useWriteContract();
+  const { writeContract: approveUsdt0, isPending: isApproving } = useWriteContract();
+
+  const [xrplAddress, setXrplAddress] = useState("");
+
+  // Read the borrower's XRPL binding
+  const { data: xrplBindingRaw } = useReadContract({
+    address: vaultAddress,
+    abi: CREDIT_GATE_ABI,
+    functionName: "borrowerXRPLAddressHash",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+  const xrplBound = xrplBindingRaw && (xrplBindingRaw as `0x${string}`) !== "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+  // Read USDT0 allowance for the vault
+  const { data: usdt0AllowanceRaw, refetch: refetchAllowance } = useReadContract({
+    address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
+    abi: CREDIT_GATE_ABI,
+    functionName: "allowance",
+    args: address ? [address, vaultAddress] : undefined,
+    query: { enabled: !!address },
+  });
+  const usdt0Allowance = (usdt0AllowanceRaw ?? 0n) as bigint;
 
   const handleDeposit = () => {
     if (!depositAmount) return;
@@ -45,6 +69,27 @@ export default function AppPage() {
       abi: CREDIT_GATE_ABI,
       functionName: "depositCollateral",
       args: [parseUnits(depositAmount, 6)],
+    });
+  };
+
+  const handleRegisterXRPL = () => {
+    if (!xrplAddress.trim()) return;
+    const hash = keccak256(stringToHex(xrplAddress.trim()));
+    registerXRPL({
+      address: vaultAddress,
+      abi: CREDIT_GATE_ABI,
+      functionName: "registerXRPLAddress",
+      args: [hash],
+    });
+  };
+
+  const handleApproveUsdt0 = () => {
+    if (!loanAmount) return;
+    approveUsdt0({
+      address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
+      abi: CREDIT_GATE_ABI,
+      functionName: "approve",
+      args: [vaultAddress, parseUnits(loanAmount, 6)],
     });
   };
 
@@ -64,6 +109,7 @@ export default function AppPage() {
       abi: CREDIT_GATE_ABI,
       functionName: "drawLoan",
       args: [loanId, parseUnits(loanAmount, 6)],
+      value: 0n,
     });
   };
 
@@ -115,6 +161,36 @@ export default function AppPage() {
               </div>
             </div>
 
+            {/* XRPL Address Binding Panel */}
+            <div className="bg-gray-900 rounded-lg p-6 border border-gray-700 md:col-span-2">
+              <h2 className="text-xl font-semibold mb-4">Bind XRPL Repayment Address</h2>
+              <p className="text-sm text-gray-400 mb-3">
+                Required before drawing a loan — the FDC repayment proof&apos;s receiving address must match this binding.
+              </p>
+              {xrplBound ? (
+                <div className="text-sm text-green-400 font-semibold">
+                  ✓ XRPL address bound — repayment proofs must match this address
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={xrplAddress}
+                    onChange={(e) => setXrplAddress(e.target.value)}
+                    placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                    className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={handleRegisterXRPL}
+                    disabled={isRegistering || !xrplAddress.trim()}
+                    className="bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 rounded-lg px-6 py-2 font-semibold transition-colors"
+                  >
+                    {isRegistering ? "Binding..." : "Bind XRPL Address"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Loan Panel */}
             <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
               <h2 className="text-xl font-semibold mb-4">Draw USDT0 Loan</h2>
@@ -155,6 +231,29 @@ export default function AppPage() {
                     {isDrawing ? "Drawing..." : "Draw Loan"}
                   </button>
                 </div>
+                {/* USDT0 allowance gate */}
+                <div className="text-xs text-gray-400">
+                  {usdt0Allowance > 0n ? (
+                    <span className="text-green-400">
+                      ✓ USDT0 approved: {formatUnits(usdt0Allowance, 6)} USDT0
+                    </span>
+                  ) : (
+                    <span>
+                      USDT0 not approved yet — approve before drawing (the vault pulls the loan amount from your USDT0).
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={handleApproveUsdt0}
+                  disabled={isApproving || !loanAmount || usdt0Allowance >= (loanAmount ? parseUnits(loanAmount, 6) : 0n)}
+                  className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 rounded-lg py-2 font-semibold transition-colors text-sm"
+                >
+                  {usdt0Allowance > 0n
+                    ? `Approve More (currently ${formatUnits(usdt0Allowance, 6)})`
+                    : isApproving
+                    ? "Approving..."
+                    : "Approve USDT0 for Vault"}
+                </button>
               </div>
             </div>
 
@@ -202,6 +301,7 @@ function LoanCard({ loanId }: { loanId: bigint }) {
     eligibilityNonce: bigint;
     expectedCommitment: `0x${string}`;
     state: bigint;
+    borrowerSourceAddressHash: `0x${string}`;
   };
   const borrower = loanObj.borrower;
   const collateralAmount = loanObj.collateralAmount;
@@ -212,6 +312,7 @@ function LoanCard({ loanId }: { loanId: bigint }) {
   const eligibilityNonce = loanObj.eligibilityNonce;
   const expectedCommitment = loanObj.expectedCommitment;
   const state = loanObj.state;
+  const borrowerSourceAddressHash = loanObj.borrowerSourceAddressHash;
 
   const stateName = LOAN_STATES[Number(state) as keyof typeof LOAN_STATES] || "UNKNOWN";
   const stateNum = Number(state);
@@ -236,6 +337,26 @@ function LoanCard({ loanId }: { loanId: bigint }) {
           {loanAmount > 0n && (
             <div className="text-sm text-gray-400">
               Loan: {formatUnits(loanAmount, 6)} USDT0
+            </div>
+          )}
+          {requiredRepaymentDrops > 0n && (
+            <div className="text-sm text-gray-400">
+              Repay: {formatUnits(requiredRepaymentDrops, 6)} XRP (drops)
+            </div>
+          )}
+          {expectedCommitment && expectedCommitment !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+            <div className="text-xs text-gray-500 break-all mt-1">
+              Memo commitment: {expectedCommitment.slice(0, 18)}...
+            </div>
+          )}
+          {borrowerSourceAddressHash && borrowerSourceAddressHash !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              XRPL binding: {borrowerSourceAddressHash.slice(0, 10)}...
+            </div>
+          )}
+          {stateNum === 2 && (
+            <div className="text-sm text-purple-300 mt-1">
+              ⏳ Waiting for FCC attestation — request eligibility, then the TEE signs your credit decision.
             </div>
           )}
         </div>
