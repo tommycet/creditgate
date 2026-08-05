@@ -32,13 +32,15 @@ export default function AppPage() {
   });
   const borrowerLoanIds: bigint[] = (borrowerLoanIdsRaw ?? []) as bigint[];
 
-  // Write contract hooks
-  const { writeContract: depositCollateral, isPending: isDepositing } = useWriteContract();
-  const { writeContract: requestEligibility, isPending: isRequesting } = useWriteContract();
-  const { writeContract: drawLoan, isPending: isDrawing } = useWriteContract();
-  const { writeContract: withdrawCollateral, isPending: isWithdrawing } = useWriteContract();
-  const { writeContract: registerXRPL, isPending: isRegistering } = useWriteContract();
-  const { writeContract: approveUsdt0, isPending: isApproving } = useWriteContract();
+  // Write contract hooks — capture errors for user-facing display
+  const { writeContract: depositCollateral, isPending: isDepositing, error: depositError } = useWriteContract();
+  const { writeContract: requestEligibility, isPending: isRequesting, error: requestError } = useWriteContract();
+  const { writeContract: drawLoan, isPending: isDrawing, error: drawError } = useWriteContract();
+  const { writeContract: withdrawCollateral, isPending: isWithdrawing, error: withdrawError } = useWriteContract();
+  const { writeContract: registerXRPL, isPending: isRegistering, error: registerError } = useWriteContract();
+  const { writeContract: approveUsdt0, isPending: isApproving, error: approveError } = useWriteContract();
+
+  const txError = depositError || requestError || drawError || withdrawError || registerError || approveError;
 
   const [xrplAddress, setXrplAddress] = useState("");
 
@@ -61,6 +63,25 @@ export default function AppPage() {
     query: { enabled: !!address },
   });
   const usdt0Allowance = (usdt0AllowanceRaw ?? 0n) as bigint;
+
+  // Read token balances for display
+  const { data: fxrpBalanceRaw } = useReadContract({
+    address: CREDIT_GATE_CONFIG.contracts.fxrp as `0x${string}`,
+    abi: CREDIT_GATE_ABI,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+  const fxrpBalance = (fxrpBalanceRaw ?? 0n) as bigint;
+
+  const { data: usdt0BalanceRaw } = useReadContract({
+    address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
+    abi: CREDIT_GATE_ABI,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+  const usdt0Balance = (usdt0BalanceRaw ?? 0n) as bigint;
 
   const handleDeposit = () => {
     if (!depositAmount) return;
@@ -131,11 +152,33 @@ export default function AppPage() {
           <ConnectButton />
         </div>
 
+        {/* Transaction error banner */}
+        {txError && (
+          <div className="mb-6 bg-red-900/50 border border-red-500 rounded-lg p-4">
+            <p className="text-red-300 text-sm font-semibold">Transaction Error</p>
+            <p className="text-red-200 text-xs mt-1">
+              {txError?.message || String(txError)}
+            </p>
+          </div>
+        )}
+
         {!isConnected ? (
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg">Connect your wallet to interact with CreditGate</p>
           </div>
         ) : (
+          <>
+          {/* Token balances */}
+          <div className="mb-6 grid grid-cols-2 gap-4 max-w-4xl mx-auto">
+            <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 text-center">
+              <div className="text-xs text-gray-400">Your FXRP Balance</div>
+              <div className="text-lg font-semibold">{formatUnits(fxrpBalance, 6)}</div>
+            </div>
+            <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 text-center">
+              <div className="text-xs text-gray-400">Your USDT0 Balance</div>
+              <div className="text-lg font-semibold">{formatUnits(usdt0Balance, 6)}</div>
+            </div>
+          </div>
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Deposit Panel */}
             <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
@@ -271,6 +314,7 @@ export default function AppPage() {
               )}
             </div>
           </div>
+          </>
         )}
       </div>
     </main>
