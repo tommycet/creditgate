@@ -38,7 +38,7 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 - XRPL address binding — borrower registers their XRPL r-address; FDC repayment proof must match (prevents repayment substitution)
 - 32-byte XRPL MemoData commitment binding — Domain-separated, loan-specific
 - FDC repayment proof verification — Status, amount, memo, receiver, and source checks
-- Foundry test suite — **68 tests**: 57 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language compatibility (a signature produced by the real Go FCC handler is accepted by the Solidity vault's ecrecover)
+- Foundry test suite — **74 tests across 6 suites**: 60 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language compatibility + 3 reentrancy attack (real malicious-token callback blocked by `ReentrancyGuard`)
 - React lifecycle UI — Judge-facing demo interface
 
 **Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration (`FdcRequestFeeConfigurations` at `0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e`, verified live via ContractRegistry on 2026-08-05).
@@ -54,7 +54,8 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 | `evidence/tee-attestation.json` | Real attestation produced by the Go FCC handler (POST /action) |
 | `planning/fdc-review/verdict.md` | FDC script review (PASS-WITH-NOTES, fee bug fixed) |
 | `planning/frontend-review/verdict.md` | Frontend review (6 lifecycle UX gaps found and fixed) |
-| `planning/research/agent_N/verdict.md` | 15 research verdicts from competitive + spec analysis |
+| `test/CreditGateVault.malicious-reentrancy.t.sol` | Real reentrancy attack: malicious FXRP token calls depositCollateral from transferFrom — blocked by ReentrancyGuard |
+| `ARCHITECTURE.md` | EIP-191 payload layout, FDC proof verification flow, Flare primitive contracts, security fixes |
 
 ## Deployment
 
