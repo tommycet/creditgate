@@ -13,9 +13,11 @@ export const CREDIT_GATE_ABI = [
   "function loans(uint256) view returns (tuple(address borrower, uint256 collateralAmount, uint256 loanAmount, uint256 requiredRepaymentDrops, uint256 deadline, uint64 eligibilityExpiry, uint32 eligibilityNonce, bytes32 expectedCommitment, uint8 state, bytes32 borrowerSourceAddressHash))",
   "function getLoan(uint256) view returns (tuple(address borrower, uint256 collateralAmount, uint256 loanAmount, uint256 requiredRepaymentDrops, uint256 deadline, uint64 eligibilityExpiry, uint32 eligibilityNonce, bytes32 expectedCommitment, uint8 state, bytes32 borrowerSourceAddressHash))",
   "function getBorrowerLoanIds(address) view returns (uint256[])",
+  "function borrowerXRPLAddressHash(address) view returns (bytes32)",
 
   // Mutating functions
   "function depositCollateral(uint256 amount) returns (uint256 loanId)",
+  "function registerXRPLAddress(bytes32 xrplAddressHash)",
   "function withdrawCollateral(uint256 loanId)",
   "function requestEligibility(uint256 loanId)",
   "function submitEligibility(uint256 loanId, tuple(address borrower, uint256 limit, uint64 expiry, uint32 nonce, uint8 revocationVersion, uint8 v, bytes32 r, bytes32 s) attestation)",

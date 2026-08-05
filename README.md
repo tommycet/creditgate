@@ -34,10 +34,11 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 ## What Was Newly Built (Hackathon)
 
 - `CreditGateVault.sol` — State machine, FXRP/USDT0 custody, collateral ratio enforcement
-- `CreditExtension.sol` — FCC CREDIT/EVALUATE eligibility evaluator (simulated TEE)
+- `CreditGateInstructionSender.sol` + Go TEE handler — FCC CREDIT/EVALUATE eligibility evaluator (simulated TEE), per official Flare Compute Extension architecture
+- XRPL address binding — borrower registers their XRPL r-address; FDC repayment proof must match (prevents repayment substitution)
 - 32-byte XRPL MemoData commitment binding — Domain-separated, loan-specific
-- FDC repayment proof verification — Status, amount, memo, and source checks
-- Foundry test suite — 51 unit tests covering all paths
+- FDC repayment proof verification — Status, amount, memo, receiver, and source checks
+- Foundry test suite — 57 unit + fuzz/invariant tests covering all paths
 - React lifecycle UI — Judge-facing demo interface
 
 **Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration.
