@@ -2,7 +2,6 @@
 pragma solidity ^0.8.25;
 
 import {Script, console} from "forge-std/Script.sol";
-import {StdJson} from "forge-std/StdJson.sol";
 
 import {FDCBase} from "./Base.s.sol";
 import {IFdcVerification} from "@flarenetwork/flare-periphery-contracts/src/coston2/IFdcVerification.sol";
@@ -52,8 +51,6 @@ import {IXRPPayment} from "@flarenetwork/flare-periphery-contracts/src/coston2/I
 /// `votingRoundId`, `merkleRoot`, `requestBytes`, and the attestationType/sourceId
 /// so the Interact stage can locate and verify it.
 contract RetrievePayment is FDCBase {
-    using StdJson for string;
-
     /// @notice Coston2 FdcVerification (same as XRPPayment.s.sol; kept here so
     ///         this script is self-contained — Stage 3 doesn't import XRPPayment).
     address constant FDC_VERIFICATION = 0x906507E0B64bcD494Db73b0459d1C667e14B933;
@@ -285,7 +282,7 @@ contract RetrievePayment is FDCBase {
         // The actual merkle-proof *leaf vector* is returned by the off-chain DA
         // Layer REST API (Foundry can't issue HTTP requests from a script). We
         // emit the exact POST body to use so Stage 5 (Interact) can replay it.
-        console.log("=== Stage 3 — Fetch proof from the DA Layer ===");
+        console.log("=== Stage 3 - Fetch proof from the DA Layer ===");
         console.log("POST to:", string.concat(DA_LAYER_URL, "/api/v1/fdc/proof-by-request-round-raw"));
         console.log("  votingRoundId:", foundRound);
         console.log("  requestBytes :", vm.toString(keccak256(requestBytes))); // confidentiality-safe
