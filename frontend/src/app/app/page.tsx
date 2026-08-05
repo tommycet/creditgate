@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useWriteContract, useReadContract } from "wagmi";
+import { useAccount, useWriteContract, useReadContract, useChainId, useSwitchChain } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { parseUnits, formatUnits, keccak256, stringToHex } from "viem";
 import { CREDIT_GATE_CONFIG, LOAN_STATES } from "@/config/contract";
@@ -41,6 +41,11 @@ export default function AppPage() {
   const { writeContract: approveUsdt0, isPending: isApproving, error: approveError } = useWriteContract();
 
   const txError = depositError || requestError || drawError || withdrawError || registerError || approveError;
+
+  // Network mismatch detection — Coston2 is chain ID 114
+  const chainId = useChainId();
+  const { switchChain, isPending: isSwitchingNetwork } = useSwitchChain();
+  const wrongNetwork = !!address && chainId !== CREDIT_GATE_CONFIG.chainId;
 
   const [xrplAddress, setXrplAddress] = useState("");
   const [fccJson, setFccJson] = useState("");
@@ -193,9 +198,35 @@ export default function AppPage() {
           </div>
         )}
 
+        {/* Network mismatch warning */}
+        {wrongNetwork && (
+          <div className="mb-6 bg-yellow-900/50 border border-yellow-500 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-yellow-300 text-sm font-semibold">
+                Wrong network — switch to Flare Coston2 (Chain ID 114)
+              </p>
+              <p className="text-yellow-200 text-xs mt-1">
+                Your wallet is on chain {chainId}. CreditGate is deployed on Flare Coston2.
+              </p>
+            </div>
+            <button
+              onClick={() => switchChain({ chainId: CREDIT_GATE_CONFIG.chainId })}
+              disabled={isSwitchingNetwork}
+              className="bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-700 text-black font-semibold rounded-lg px-4 py-2 text-sm transition-colors whitespace-nowrap"
+            >
+              {isSwitchingNetwork ? "⏳ Switching…" : "Switch Network"}
+            </button>
+          </div>
+        )}
+
         {!isConnected ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 text-lg">Connect your wallet to interact with CreditGate</p>
+            <p className="text-gray-400 text-lg">
+              Connect your wallet to interact with CreditGate on Flare Coston2
+            </p>
+            <p className="text-gray-500 text-sm mt-2">
+              Use the <span className="text-white font-semibold">Connect Wallet</span> button in the navbar above.
+            </p>
           </div>
         ) : (
           <>
