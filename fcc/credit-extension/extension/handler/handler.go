@@ -82,6 +82,11 @@ type Handler struct {
 	// Simulated borrower limits; in production the TEE holds private data.
 	limits map[string]*big.Int
 	revoked map[string]bool
+	// lastAttestation stores the most recent EvaluationResult per borrower
+	// (lowercase address) so /eligibility/:address can serve it without
+	// re-running the full evaluation. In production this lives in TEE storage;
+	// here it is in-memory and reset on restart.
+	lastResult map[string]EvaluationResult
 }
 
 // NewHandler loads the signing key from env (SIMULATED_TEE) and builds the handler.
@@ -109,6 +114,7 @@ func NewHandler() (*Handler, error) {
 		xrpUsd18dp:        xrpPrice,
 		limits:            map[string]*big.Int{},
 		revoked:           map[string]bool{},
+		lastResult:        map[string]EvaluationResult{},
 	}, nil
 }
 
