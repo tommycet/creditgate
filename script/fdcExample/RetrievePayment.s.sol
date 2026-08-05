@@ -53,7 +53,7 @@ import {IXRPPayment} from "@flarenetwork/flare-periphery-contracts/src/coston2/I
 contract RetrievePayment is FDCBase {
     /// @notice Coston2 FdcVerification (same as XRPPayment.s.sol; kept here so
     ///         this script is self-contained — Stage 3 doesn't import XRPPayment).
-    address constant FDC_VERIFICATION = 0x906507E0B64bcD494Db73b0459d1C667e14B933;
+    address constant FDC_VERIFICATION = 0x906507E0B64bcD494Db73bd0459d1C667e14B933;
 
     /// @notice DA Layer REST endpoint for proof-by-request-round-raw on Coston2.
     ///         Foundry scripts cannot make HTTP calls, so this URL is emitted for
@@ -353,10 +353,12 @@ contract RetrievePayment is FDCBase {
     /// @notice Short hex tag (first 8 hex chars) for filenames — fits POSIX
     ///         14-byte limits even with `request-`/`proof-` prefixes.
     function _shortTx(bytes32 txId) internal pure returns (string memory) {
-        bytes memory hexed = vm.toString(txId);
-        // vm.toString returns full 0x + 64 hex chars; take first 10 ("0x"+8).
+        // vm.toString(bytes32) returns a "0x..." string; slice first 10 chars
+        // ("0x" + 8 hex digits).
+        string memory hexed = vm.toString(txId);
+        bytes memory src = bytes(hexed);
         bytes memory out = new bytes(10);
-        for (uint256 i = 0; i < 10; i++) out[i] = hexed[i];
+        for (uint256 i = 0; i < 10; i++) out[i] = src[i];
         return string(out);
     }
 }
