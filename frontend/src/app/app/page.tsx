@@ -324,6 +324,7 @@ export default function AppPage() {
 function LoanCard({ loanId }: { loanId: bigint }) {
   const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
   const { writeContract: withdrawCollateral, isPending } = useWriteContract();
+  const { writeContract: liquidate, isPending: isLiquidating } = useWriteContract();
 
   const { data: loan } = useReadContract({
     address: vaultAddress,
@@ -370,6 +371,15 @@ function LoanCard({ loanId }: { loanId: bigint }) {
     });
   };
 
+  const handleLiquidate = () => {
+    liquidate({
+      address: vaultAddress,
+      abi: CREDIT_GATE_ABI,
+      functionName: "liquidate",
+      args: [loanId],
+    });
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
       <div className="flex justify-between items-start">
@@ -409,12 +419,18 @@ function LoanCard({ loanId }: { loanId: bigint }) {
             className={`px-2 py-1 rounded text-xs font-semibold ${
               stateNum === 1
                 ? "bg-yellow-900 text-yellow-300"
+                : stateNum === 2
+                ? "bg-purple-900 text-purple-300"
                 : stateNum === 3
                 ? "bg-green-900 text-green-300"
                 : stateNum === 4
                 ? "bg-blue-900 text-blue-300"
+                : stateNum === 5
+                ? "bg-orange-900 text-orange-300"
                 : stateNum === 6
                 ? "bg-gray-700 text-gray-300"
+                : stateNum === 8
+                ? "bg-red-900 text-red-300"
                 : "bg-gray-700 text-gray-400"
             }`}
           >
@@ -430,6 +446,25 @@ function LoanCard({ loanId }: { loanId: bigint }) {
         >
           {isPending ? "Withdrawing..." : "Withdraw Collateral"}
         </button>
+      )}
+      {stateNum === 4 && (
+        <div className="mt-3 space-y-2">
+          <div className="text-xs text-blue-300 bg-blue-900/30 rounded p-2">
+            Repay {formatUnits(requiredRepaymentDrops, 6)} XRP drops on XRPL testnet with the memo commitment above, then submit the FDC proof to release collateral.
+          </div>
+          <button
+            onClick={handleLiquidate}
+            disabled={isLiquidating}
+            className="w-full bg-red-600 hover:bg-red-500 disabled:bg-gray-700 rounded-lg py-1 text-sm font-semibold transition-colors"
+          >
+            {isLiquidating ? "Liquidating..." : "Liquidate (deadline passed)"}
+          </button>
+        </div>
+      )}
+      {stateNum === 8 && (
+        <div className="mt-3 text-xs text-red-300">
+          Loan defaulted — collateral seized. Owner can recover via recoverDefaultedCollateral.
+        </div>
       )}
     </div>
   );
