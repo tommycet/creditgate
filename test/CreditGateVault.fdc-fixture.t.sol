@@ -31,7 +31,7 @@ contract CreditGateVaultFDCFixtureTest is Test {
     address public lender;
 
     uint256 constant DEPOSIT_100_FXRP = 100e6;
-    uint256 constant LOAN_100_USDT = 100e6;
+    uint256 constant LOAN_100_USDT = 100e18; // USDT0 is 18dp on Coston2
     uint256 constant XRP_PRICE_2_50 = 2.5e18;
     uint64 constant FTSO_STALENESS_LIMIT = 300;
     uint256 constant LOAN_DURATION = 30 days;
@@ -63,7 +63,7 @@ contract CreditGateVaultFDCFixtureTest is Test {
 
         // Fund borrower with FXRP, lender with USDT0
         fxrp.mint(borrower, 1000e6);
-        usdt0.mint(lender, 1000e6);
+        usdt0.mint(lender, 10_000e18);
 
         // Set FTSO price
         ftso.setValueInWei(XRP_PRICE_2_50, uint64(block.timestamp));
@@ -76,7 +76,7 @@ contract CreditGateVaultFDCFixtureTest is Test {
 
         // Fund vault with USDT0 (lender deposits)
         vm.prank(lender);
-        usdt0.transfer(address(vault), 1000e6);
+        usdt0.transfer(address(vault), 10_000e18);
 
         // Register XRPL address
         vm.prank(borrower);

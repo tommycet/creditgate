@@ -43,8 +43,8 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
     uint256 constant DEPOSIT_50_FXRP = 50e6;
 
     // Helper: USDT0 amounts (6 decimals)
-    uint256 constant LOAN_100_USDT = 100e6;
-    uint256 constant LOAN_150_USDT = 150e6;
+    uint256 constant LOAN_100_USDT = 100e18; // USDT0 is 18 decimals on Coston2
+    uint256 constant LOAN_150_USDT = 150e18;
 
     // ═══════════════════ Setup ═══════════════════
 
@@ -72,7 +72,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         // Mint test tokens
         fxrp.mint(borrower1, 1_000e6);
         fxrp.mint(borrower2, 1_000e6);
-        usdt0.mint(address(vault), 1_000e6); // Vault needs USDT0 to disburse loans
+        usdt0.mint(address(vault), 10_000e18); // Vault needs USDT0 (18dp) to disburse loans
 
         // Set FTSO price
         ftso.setValueInWei(XRP_PRICE_2_50, uint64(block.timestamp));
@@ -534,7 +534,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         assertEq(loan.loanAmount, LOAN_100_USDT);
         assertEq(usdt0.balanceOf(borrower1), balBefore + LOAN_100_USDT);
 
-        // Check required repayment drops: 100e6 * 1e18 / 2.5e18 = 40e6
+        // Check required repayment drops: 100e18 * 1e6 / 2.5e18 = 40e6
         assertEq(loan.requiredRepaymentDrops, 40e6);
     }
 
@@ -555,11 +555,11 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vm.expectRevert(
             abi.encodeWithSelector(
                 CreditGateTypes.InsufficientCollateral.selector,
-                250e6 * 1e12 * 10_000, // collateralUsd18 * 10000
-                200e6 * 1e12 * COLLATERAL_RATIO_BPS // loanUsd18 * ratio
+                XRP_PRICE_2_50 * 1e12 * 100e6 * 10_000 / 1e18, // collateralUsd18 * 10000
+                200e18 * COLLATERAL_RATIO_BPS                  // loanUsd18 (18dp) * ratio
             )
         );
-        vault.drawLoan{value: 0}(loanId, 200e6);
+        vault.drawLoan{value: 0}(loanId, 200e18);
     }
 
     function test_drawLoan_revertsIfFTSOStale() public {

@@ -114,7 +114,7 @@ export default function AppPage() {
       address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
       abi: CREDIT_GATE_ABI,
       functionName: "approve",
-      args: [vaultAddress, parseUnits(loanAmount, 6)],
+      args: [vaultAddress, parseUnits(loanAmount, 18)],
     });
   };
 
@@ -160,7 +160,7 @@ export default function AppPage() {
       address: vaultAddress,
       abi: CREDIT_GATE_ABI,
       functionName: "drawLoan",
-      args: [loanId, parseUnits(loanAmount, 6)],
+      args: [loanId, parseUnits(loanAmount, 18)],
       value: 0n,
     });
   };
@@ -207,7 +207,7 @@ export default function AppPage() {
             </div>
             <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 text-center">
               <div className="text-xs text-gray-400">Your USDT0 Balance</div>
-              <div className="text-lg font-semibold">{formatUnits(usdt0Balance, 6)}</div>
+              <div className="text-lg font-semibold">{formatUnits(usdt0Balance, 18)}</div>
             </div>
           </div>
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -309,7 +309,7 @@ export default function AppPage() {
                 <div className="text-xs text-gray-400">
                   {usdt0Allowance > 0n ? (
                     <span className="text-green-400">
-                      ✓ USDT0 approved: {formatUnits(usdt0Allowance, 6)} USDT0
+                      ✓ USDT0 approved: {formatUnits(usdt0Allowance, 18)} USDT0
                     </span>
                   ) : (
                     <span>
@@ -319,11 +319,11 @@ export default function AppPage() {
                 </div>
                 <button
                   onClick={handleApproveUsdt0}
-                  disabled={isApproving || !loanAmount || usdt0Allowance >= (loanAmount ? parseUnits(loanAmount, 6) : 0n)}
+                  disabled={isApproving || !loanAmount || usdt0Allowance >= (loanAmount ? parseUnits(loanAmount, 18) : 0n)}
                   className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 rounded-lg py-2 font-semibold transition-colors text-sm"
                 >
                   {usdt0Allowance > 0n
-                    ? `Approve More (currently ${formatUnits(usdt0Allowance, 6)})`
+                    ? `Approve More (currently ${formatUnits(usdt0Allowance, 18)})`
                     : isApproving
                     ? "Approving..."
                     : "Approve USDT0 for Vault"}
@@ -452,7 +452,7 @@ function LoanCard({ loanId }: { loanId: bigint }) {
           </div>
           {loanAmount > 0n && (
             <div className="text-sm text-gray-400">
-              Loan: {formatUnits(loanAmount, 6)} USDT0
+              Loan: {formatUnits(loanAmount, 18)} USDT0
             </div>
           )}
           {requiredRepaymentDrops > 0n && (

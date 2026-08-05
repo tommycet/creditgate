@@ -110,7 +110,7 @@ export default function TransparencyPage() {
               <div>
                 <div className="text-sm text-gray-400">USDT0 Available</div>
                 <div className="text-lg font-semibold">
-                  {usdt0Balance ? formatUnits(usdt0Balance, 6) : "0.00"} USDT0
+                  {usdt0Balance ? formatUnits(usdt0Balance, 18) : "0.00"} USDT0
                 </div>
               </div>
             </div>

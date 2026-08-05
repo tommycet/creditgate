@@ -87,9 +87,9 @@ contract CreditGateVaultInvariantTest is Test {
             fxrp.approve(address(vault), type(uint256).max);
         }
         // Fund the vault with USDT0 (lender side)
-        usdt0.mint(address(this), 10_000e6);
+        usdt0.mint(address(this), 100_000e18);
         usdt0.approve(address(vault), type(uint256).max);
-        usdt0.transfer(address(vault), 10_000e6);
+        usdt0.transfer(address(vault), 100_000e18);
 
         ftso.setValueInWei(XRP_PRICE, uint64(block.timestamp));
 
@@ -131,12 +131,12 @@ contract CreditGateVaultInvariantTest is Test {
         // holds what it started with minus disbursements, which is always >= 0.
         uint256 vaultUsdt = usdt0.balanceOf(address(vault));
         assertLe(0, vaultUsdt); // no underflow (checked arithmetic in Solidity)
-        // Total USDT0 (vault + handler + borrowers) = 10_000e6 initial lender funds.
+        // Total USDT0 = 100_000e18 initial lender funds (18dp).
         uint256 total = vaultUsdt
             + usdt0.balanceOf(handler)
             + usdt0.balanceOf(borrower1)
             + usdt0.balanceOf(borrower2);
-        assertEq(total, 10_000e6); // no external USDT0 minted
+        assertEq(total, 100_000e18); // no external USDT0 minted
     }
 
     /// @dev I3: no loan in FUNDED state owes more than the vault can cover.
