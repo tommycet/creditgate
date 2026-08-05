@@ -2,7 +2,7 @@
 
 **Private FXRP credit eligibility layer for Flare**
 
-XRP holders deposit FXRP collateral on Flare, receive a confidential eligibility attestation via FCC (Flare Confidential Compute), draw a USDT0 loan, and repay on XRPL. Repayment is verified on-chain via FDC (Flare Data Connector) with a 32-byte MemoData commitment binding.
+Billions of dollars of XRP sit idle on Flare as FXRP collateral — locked, productive as a peg anchor, but inaccessible for credit. XRP holders won't sell their position, but they can't borrow against it without a trusted private credit evaluation. **CreditGate solves this**: deposit FXRP collateral on Flare, receive a confidential eligibility attestation via FCC (Flare Confidential Compute), draw a USDT0 loan, and repay on XRPL. Repayment is verified on-chain via FDC (Flare Data Connector) with a 32-byte MemoData commitment binding — no trusted oracle, no centralized credit bureau, just Flare primitives doing what they're designed to do.
 
 ## How CreditGate Uses Flare
 
@@ -38,7 +38,7 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 - XRPL address binding — borrower registers their XRPL r-address; FDC repayment proof must match (prevents repayment substitution)
 - 32-byte XRPL MemoData commitment binding — Domain-separated, loan-specific
 - FDC repayment proof verification — Status, amount, memo, receiver, and source checks
-- Foundry test suite — **74 tests across 6 suites**: 60 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language compatibility + 3 reentrancy attack (real malicious-token callback blocked by `ReentrancyGuard`)
+- Foundry test suite — **76 tests across 6 suites**: 60 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language compatibility + 3 reentrancy attack + 2 vault-solvency/FTSO-edge (real malicious-token callback blocked by `ReentrancyGuard`, insufficient USDT0, future-timestamp FTSO)
 - React lifecycle UI — Judge-facing demo interface
 
 **Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration (`FdcRequestFeeConfigurations` at `0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e`, verified live via ContractRegistry on 2026-08-05).
@@ -124,9 +124,11 @@ go run .  # listens on :8080
 
 1. **Hackathon scope** — Simulated TEE + pre-captured FDC proof demo
 2. **Production FCC** — Migrate to real TEE attestation with key governance
-3. **Multi-collateral** — FBTC, FDOGE credit gates with asset-specific risk
-4. **Adapter integration** — Gate access to existing lending markets (Morpho/Mystic)
-5. **Institutional** — Compliance modules and lender policy engines
+3. **AI credit scoring** — FCC handler ingests an off-chain AI credit-scoring model inside the TEE for automated, private eligibility decisions
+4. **ERC-3643 compliance** — Institutional compliance modules for regulated asset issuance, integrating permissioned FXRP transfers
+5. **Multi-collateral** — FBTC, FDOGE credit gates with asset-specific risk
+6. **Adapter integration** — Gate access to existing lending markets (Morpho/Mystic)
+7. **Institutional** — Lender policy engines and compliance reporting
 
 ## License
 
