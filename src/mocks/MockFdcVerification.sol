@@ -3,11 +3,13 @@ pragma solidity ^0.8.25;
 
 import {IXRPPayment} from
     "@flarenetwork/flare-periphery-contracts/src/coston2/IXRPPayment.sol";
+import {IXRPPaymentVerification} from
+    "@flarenetwork/flare-periphery-contracts/src/coston2/IXRPPaymentVerification.sol";
 
 /// @title MockFdcVerification — Test double for Flare FdcVerification
-/// @dev Only implements verifyXRPPayment(IXRPPayment.Proof calldata) which returns
-///      a configurable bool. The vault calls this via IXRPPaymentVerification.
-contract MockFdcVerification {
+/// @dev Implements IXRPPaymentVerification.verifyXRPPayment. Returns configurable result.
+///      Label: FIXTURE - no live FDC verification.
+contract MockFdcVerification is IXRPPaymentVerification {
     bool private _result;
 
     function setResult(bool result_) external {

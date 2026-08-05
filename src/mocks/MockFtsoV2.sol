@@ -7,12 +7,12 @@ pragma solidity ^0.8.25;
 contract MockFtsoV2 {
     uint256 private _valueInWei; // 18-decimal USD price
     int8 private _decimals; // reported decimals (for getFeedById)
-    uint64 private _timestamp; // feed timestamp
+    uint64 private _feedTimestamp; // feed timestamp
 
     function setValueInWei(uint256 value_, uint64 timestamp_) external {
         _valueInWei = value_;
         _decimals = 18;
-        _timestamp = timestamp_;
+        _feedTimestamp = timestamp_;
     }
 
     /// @notice payable to match real FtsoV2Interface.getFeedByIdInWei
@@ -21,7 +21,7 @@ contract MockFtsoV2 {
         payable
         returns (uint256 _value, uint64 _timestamp)
     {
-        return (_valueInWei, _timestamp);
+        return (_valueInWei, _feedTimestamp);
     }
 
     /// @notice payable to match real FtsoV2Interface.getFeedById
@@ -30,6 +30,6 @@ contract MockFtsoV2 {
         payable
         returns (uint256 _value, int8 _decimals_, uint64 _timestamp_)
     {
-        return (_valueInWei, _decimals, _timestamp);
+        return (_valueInWei, _decimals, _feedTimestamp);
     }
 }
