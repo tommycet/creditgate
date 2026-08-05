@@ -37,9 +37,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     address public immutable fdcVerification; // FdcVerification (test-flexible)
 
     // ═══════════════════ Storage ═══════════════════
-
-    address public owner;
+    // G1 (gas-audit): `paused` (1 byte) + `owner` (20 bytes) packed into a single
+    // slot, saving one SLOAD/SSTORE on every onlyOwner/whenNotPaused combo.
     bool public paused;
+    address public owner;
 
     uint256 public nextLoanId = 1; // 0 is unused (IDLE sentinel)
 
@@ -212,7 +213,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (loan.state != LoanState.ELIGIBILITY_PENDING) {
             revert InvalidLoanState(loan.state, LoanState.ELIGIBILITY_PENDING);
         }
-        require(loan.borrower == msg.sender, "NotBorrower");
+        // G2 (gas-audit): cache `borrower` once — reused 3× (require, mismatch check, event).
+        address borrower = loan.borrower;
+        require(borrower == msg.sender, "NotBorrower");
 
         // ── Validation order: STALE → REVOKED → SIGNER → BORROWER → NONCE ──
         if (uint64(block.timestamp) >= attestation.expiry) {
@@ -254,8 +257,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (recovered == address(0) || recovered != teeAuthority) {
             revert InvalidEligibilitySigner(recovered, teeAuthority);
         }
-        if (attestation.borrower != loan.borrower) {
-            revert BorrowerMismatch(loan.borrower, attestation.borrower);
+        if (attestation.borrower != borrower) {
+            revert BorrowerMismatch(borrower, attestation.borrower);
         }
         if (attestation.nonce != loan.eligibilityNonce) {
             revert NonceMismatch(loan.eligibilityNonce, attestation.nonce);
@@ -265,7 +268,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         loan.eligibilityExpiry = attestation.expiry;
         loan.state = LoanState.ELIGIBLE;
 
-        emit EligibilitySubmitted(loanId, loan.borrower, attestation.limit, attestation.expiry);
+        emit EligibilitySubmitted(loanId, borrower, attestation.limit, attestation.expiry);
     }
 
     /// @notice Draw a USDT0 loan against eligible collateral. Reads the live FTSOv2
@@ -284,7 +287,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (loan.state != LoanState.ELIGIBLE) {
             revert InvalidLoanState(loan.state, LoanState.ELIGIBLE);
         }
-        require(loan.borrower == msg.sender, "NotBorrower");
+        // G3 (gas-audit): cache `borrower` once — reused 4× below (require, commitment,
+        // disbursement, event).
+        address borrower = loan.borrower;
+        require(borrower == msg.sender, "NotBorrower");
         if (loanAmount == 0) revert ZeroAmount();
 
         // L1 fix: re-check eligibility expiry at draw time (was only checked at submission)
@@ -334,7 +340,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
         // ── Compute & store commitment for FDC memo binding ──
         bytes32 commitment =
-            _computeCommitment(loanId, loan.borrower, requiredRepaymentDrops, deadline);
+            _computeCommitment(loanId, borrower, requiredRepaymentDrops, deadline);
 
         loan.loanAmount = loanAmount;
         loan.requiredRepaymentDrops = requiredRepaymentDrops;
@@ -343,11 +349,11 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         loan.state = LoanState.FUNDED;
 
         // ── Disburse USDT0 from vault to borrower ──
-        usdt0.safeTransfer(loan.borrower, loanAmount);
+        usdt0.safeTransfer(borrower, loanAmount);
 
-        emit LoanFunded(
-            loanId, loan.borrower, loanAmount, loan.collateralAmount, commitment
-        );
+        // G4 (gas-audit): cache `collateralAmount` once (read 2× below: ratio + event).
+        uint256 collateralAmount = loan.collateralAmount;
+        emit LoanFunded(loanId, borrower, loanAmount, collateralAmount, commitment);
     }
 
     /// @notice Submit an FDC-verified XRPL payment proof to close a funded loan.
