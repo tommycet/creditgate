@@ -41,7 +41,20 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 - Foundry test suite — **68 tests**: 57 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language compatibility (a signature produced by the real Go FCC handler is accepted by the Solidity vault's ecrecover)
 - React lifecycle UI — Judge-facing demo interface
 
-**Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration.
+**Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration (`FdcRequestFeeConfigurations` at `0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e`, verified live via ContractRegistry on 2026-08-05).
+
+## Evidence Directory
+
+| File | What it proves |
+|------|----------------|
+| `test/CreditGateVault.t.sol` | 57 unit tests — all state transitions, error paths, reentrancy |
+| `test/CreditGateVault.fdc-fixture.t.sol` | 4 FDC lifecycle tests — realistic XRPL proof verified by vault |
+| `test/CreditGateVault.invariant.t.sol` | 5 invariant/fuzz tests — FXRP conservation, USDT0 solvency, state ordering |
+| `test/CreditGateVault.go-tee-compat.t.sol` | 2 cross-language tests — Go TEE signature accepted by Solidity ecrecover |
+| `evidence/tee-attestation.json` | Real attestation produced by the Go FCC handler (POST /action) |
+| `planning/fdc-review/verdict.md` | FDC script review (PASS-WITH-NOTES, fee bug fixed) |
+| `planning/frontend-review/verdict.md` | Frontend review (6 lifecycle UX gaps found and fixed) |
+| `planning/research/agent_N/verdict.md` | 15 research verdicts from competitive + spec analysis |
 
 ## Deployment
 
@@ -75,13 +88,35 @@ git clone https://github.com/<org>/creditgate.git
 cd creditgate
 forge install
 
-# Run tests
+# Run tests (68 tests: unit + FDC fixture + invariant/fuzz + Go-TEE compat)
 forge test
 
 # Deploy to Coston2
 cp .env.example .env
 # Fill in PRIVATE_KEY, TEE_AUTHORITY, FTSO_V2_ADDRESS
 forge script script/DeployCreditGate.s.sol --rpc-url coston2 --broadcast
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+# Set the deployed vault address
+echo "NEXT_PUBLIC_VAULT_ADDRESS=<deployed-address>" > .env.local
+npm run dev   # http://localhost:3000
+# or production build:
+npm run build && npm start
+```
+
+### FCC Credit Extension (Go TEE handler)
+
+```bash
+cd fcc/credit-extension/extension
+# Set the signing key (same as TEE_AUTHORITY in .env)
+export CREDITGATE_SIGNING_KEY=<your-private-key-hex>
+go run .  # listens on :8080
+# POST /action → returns EIP-191 eligibility attestation
 ```
 
 ## Roadmap
