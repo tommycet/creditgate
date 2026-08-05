@@ -38,7 +38,7 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 - XRPL address binding — borrower registers their XRPL r-address; FDC repayment proof must match (prevents repayment substitution)
 - 32-byte XRPL MemoData commitment binding — Domain-separated, loan-specific
 - FDC repayment proof verification — Status, amount, memo, receiver, and source checks
-- Foundry test suite — 57 unit + fuzz/invariant tests covering all paths
+- Foundry test suite — **68 tests**: 57 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language compatibility (a signature produced by the real Go FCC handler is accepted by the Solidity vault's ecrecover)
 - React lifecycle UI — Judge-facing demo interface
 
 **Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration.
