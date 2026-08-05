@@ -23,11 +23,12 @@ abstract contract FDCBase is Script {
     address constant FDC_HUB = 0x48aC463d7975828989331F4De43341627b9c5f1D;
 
     // Attestation type name per Flare spec (UTF8 hex zero-padded to 32 bytes)
-    bytes32 internal constant ATTESTATION_TYPE_XRPPAYMENT = 0x5852505061796d656e7400000000000000000000000000000000000000000000; // "XRPPayment"
+    // bytes32("XRPPayment") = "XRPPayment" left-padded with zeros.
+    bytes32 internal constant ATTESTATION_TYPE_XRPPAYMENT = bytes32("XRPPayment");
     // Source ID for XRPL testnet (UTF8 hex zero-padded to 32 bytes)
-    bytes32 internal constant SOURCE_ID_TEST_XRP = 0x7465737458525000000000000000000000000000000000000000000000000000; // "testXRP"
+    bytes32 internal constant SOURCE_ID_TEST_XRP = bytes32("testXRP");
     // Source ID for XRPL mainnet
-    bytes32 internal constant SOURCE_ID_XRP = 0x585250000000000000000000000000000000000000000000000000000000000000; // "XRP"
+    bytes32 internal constant SOURCE_ID_XRP = bytes32("XRP");
 
     /// @notice Submit an FDC attestation request for XRPPayment
     /// @param transactionId The XRPL transaction hash to attest
