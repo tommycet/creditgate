@@ -319,12 +319,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         }
 
         // ── Collateral ratio check ──
-        // collateralUsd18 = collateralFxrp6dp * 1e12 * xrpUsd18dp / 1e18 (rounds down)
-        // loanUsd18        = loanUsdt0_6dp * 1e12
-        // require collateralUsd18 * 10000 >= loanUsd18 * collateralRatioBps
+        // FXRP collateral: 6dp, USDT0 loan: 18dp, FTSO price: 18dp.
+        // collateralUsd18 = collateralFxrp6dp * 1e12 * xrpUsd18dp / 1e18
+        // loanUsd18        = loanUsdt0_18dp  (already 18dp, no scaling needed)
         uint256 collateralUsd18 =
             (loan.collateralAmount * SCALE_TO_18 * xrpUsd18dp) / 1e18;
-        uint256 loanUsd18 = loanAmount * SCALE_TO_18;
+        uint256 loanUsd18 = loanAmount; // USDT0 is 18dp → already in USD 18dp
         if (collateralUsd18 * 10000 < loanUsd18 * collateralRatioBps) {
             revert InsufficientCollateral(
                 collateralUsd18 * 10000, loanUsd18 * collateralRatioBps
@@ -332,9 +332,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         }
 
         // ── Compute required repayment drops ──
-        // drops = loanAmount6dp * 1e18 / xrpPriceInWei18dp
-        // (USDT0 6dp → USD 18dp via *1e12, then ÷ XRP/USD 18dp = XRP 6dp = drops 6dp)
-        uint256 requiredRepaymentDrops = (loanAmount * 1e18) / xrpUsd18dp;
+        // drops = loanUsdt0_18dp * 1e6 / xrpPriceInWei18dp
+        // (USDT0 18dp / XRP price 18dp → XRP in 6dp → drops)
+        uint256 requiredRepaymentDrops = (loanAmount * 1e6) / xrpUsd18dp;
 
         uint256 deadline = block.timestamp + loanDuration;
 

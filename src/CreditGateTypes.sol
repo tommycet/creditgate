@@ -7,9 +7,9 @@ contract CreditGateTypes {
     // ═══════════════════ Constants ═══════════════════
 
     uint8 public constant FXRP_DECIMALS = 6;
-    uint8 public constant USDT0_DECIMALS = 6;
+    uint8 public constant USDT0_DECIMALS = 18; // verified on Coston2 2026-08-05
     uint256 public constant FXRP_DECIMALS_FACTOR = 1e6;
-    uint256 public constant USDT0_DECIMALS_FACTOR = 1e6;
+    uint256 public constant USDT0_DECIMALS_FACTOR = 1e18;
     uint256 public constant SCALE_TO_18 = 1e12; // 1e18 / 1e6
 
     /// XRP/USD FTSOv2 feed ID on Coston2

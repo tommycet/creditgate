@@ -136,6 +136,59 @@ func (h *Handler) Action(raw json.RawMessage) (json.RawMessage, error) {
 }
 
 // evaluate runs the private credit check and signs the attestation.
+//
+// ── EVALUATION CRITERIA ──────────────────────────────────────────────
+// A borrower is eligible iff ALL of the following hold. Each failure
+// short-circuits with a machine-readable reason code that the vault
+// frontend can surface and the on-chain submitEligibility() check can
+// reject independently (defense in depth).
+//
+//  1. ADDRESS VALIDATION
+//     `borrower` must decode to a non-zero EVM address. Zero-address
+//     (0x0...0) and unparseable hex both short-circuit → INVALID_BORROWER.
+//     This blocks trivial griefing where a caller submits an empty address
+//     to harvest a signed (but unusable) attestation.
+//
+//  2. REVOCATION CHECK
+//     If the borrower's address is in the TEE-held revoked set, the
+//     evaluation short-circuits → BORROWER_REVOKED. Survival of the
+//     fittest: defaulted or KYC-revoked accounts can never obtain a new
+//     signed attestation, regardless of collateral posted.
+//
+//  3. INPUT SANITY (decimal-string → big.Int)
+//     `collateralAmount`, `requestedLoan`, `expiry`, `nonce` must all
+//     parse as base-10 integers. Collateral and loan must be strictly
+//     positive (> 0). Expiry and nonce only require parseability; the
+//     vault enforces the expiry deadline and nonce uniqueness onchain.
+//     → INVALID_COLLATERAL / INVALID_LOAN / INVALID_EXPIRY / INVALID_NONCE.
+//
+//  4. COLLATERAL COVERAGE RATIO (the core credit rule)
+//     Mirrors CreditGateVault.drawLoan() exactly so the TEE attestation
+//     can never approve something the vault would revert:
+//
+//       collateralUsd18 = collateral(6dp) * 1e12 * xrpUsd18dp(18dp) / 1e18
+//       require collateralUsd18 * 10000 >= loanUsd18 * collateralRatioBps
+//
+//     With the defaults (xrpUsd=$2.50, ratio=150% i.e. 15000 bps) a
+//     borrower asking for 1,000 USDT0 needs ≥ 600 FXRP posted. Falling
+//     short → INSUFFICIENT_COLLATERAL. The 10K factor and 1e18 division
+//     keep everything in 18dp fixed-point without floats.
+//
+//  5. AMOUNT CAP (borrower-specific limit)
+//     The approved `limit` is min(requestedLoan, borrowerLimit). The
+//     borrower limit is a per-account ceiling held privately in the TEE
+//     (simulated via the in-memory `limits` map, settable by an operator
+//     -- in production this is KYC/AML-driven private data). If no cap is
+//     set for the account, the full requested amount is approved. The
+//     signed attestation therefore never exceeds either the request or
+//     the account cap, so the vault's limit check is always satisfiable.
+//
+// On success a signed EIP-191 attestation is produced (see signAttestation)
+// and returned together with the approved limit. The vault re-verifies
+// both the signature and the coverage ratio on-chain, so a malicious or
+// compromised TEE cannot inflate limits past the ratio — it can only
+// under-sign, which the borrower simply rejects.
+// ──────────────────────────────────────────────────────────────────────
 func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 	borrower := common.HexToAddress(in.Borrower)
 	if borrower == (common.Address{}) {
@@ -174,6 +227,7 @@ func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 	collateralUsd.Mul(collateralUsd, tenK)
 	required := new(big.Int).Mul(requested, h.collateralRatioBps)
 	if collateralUsd.Cmp(required) < 0 {
+		h.storeResult(in.Borrower, false, "0", "INSUFFICIENT_COLLATERAL", nil)
 		return h.result(false, "0", "INSUFFICIENT_COLLATERAL", nil)
 	}
 
@@ -187,7 +241,29 @@ func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sign attestation: %w", err)
 	}
+	h.storeResult(in.Borrower, true, limit.String(), "", att)
 	return h.result(true, limit.String(), "", att)
+}
+
+// storeResult snapshots the most recent evaluation result for a borrower
+// so the read-only /eligibility/:address endpoint can replay it without
+// re-running the (signed) evaluation.
+func (h *Handler) storeResult(borrower string, eligible bool, limit, reason string, att *Attestation) {
+	h.lastResult[strings.ToLower(borrower)] = EvaluationResult{
+		Eligible:    eligible,
+		Limit:       limit,
+		Reason:      reason,
+		Attestation: att,
+	}
+}
+
+// GetEligibility returns the last cached evaluation result for an address.
+// Returns (result, true) if an evaluation has run for this address, or
+// (zero, false) if the address has never been evaluated. Callers should
+// surface the "never evaluated" case distinctly from an explicit denial.
+func (h *Handler) GetEligibility(borrower string) (EvaluationResult, bool) {
+	r, ok := h.lastResult[strings.ToLower(borrower)]
+	return r, ok
 }
 
 // registerXRPL records the borrower's XRPL address inside the TEE (simulated).
