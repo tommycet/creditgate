@@ -119,6 +119,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (borrowerRevocationVersion[borrower] < type(uint8).max) {
             borrowerRevocationVersion[borrower] += 1;
         }
+        // M2 fix: rotate the nonce so outstanding attestations are invalidated.
+        if (borrowerNonce[borrower] < type(uint32).max) {
+            borrowerNonce[borrower] += 1;
+        }
     }
 
     /// @notice Register the borrower's XRPL r-address (as a standard address hash).
@@ -235,10 +239,18 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         bytes32 ethSignedHash = keccak256(
             abi.encodePacked("\x19Ethereum Signed Message:\n32", payloadHash)
         );
+        // M1 fix: signature malleability — enforce s in lower half, v ∈ {27,28}, recovered ≠ 0
+        require(
+            attestation.s <=
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
+            "BadSignatureS"
+        );
+        require(attestation.v == 27 || attestation.v == 28, "BadSignatureV");
+
         address recovered = ecrecover(
             ethSignedHash, attestation.v, attestation.r, attestation.s
         );
-        if (recovered != teeAuthority) {
+        if (recovered == address(0) || recovered != teeAuthority) {
             revert InvalidEligibilitySigner(recovered, teeAuthority);
         }
         if (attestation.borrower != loan.borrower) {
@@ -274,9 +286,18 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         require(loan.borrower == msg.sender, "NotBorrower");
         if (loanAmount == 0) revert ZeroAmount();
 
+        // L1 fix: re-check eligibility expiry at draw time (was only checked at submission)
+        if (uint64(block.timestamp) >= loan.eligibilityExpiry) {
+            revert EligibilityExpired(loan.eligibilityExpiry, uint64(block.timestamp));
+        }
+
         // Borrower must have registered their XRPL address before borrowing.
         bytes32 borrowerXRPLHash = borrowerXRPLAddressHash[msg.sender];
         if (borrowerXRPLHash == bytes32(0)) revert XRPLAddressNotRegistered();
+
+        // L5 fix: snapshot the XRPL hash onto the loan so re-binding can't change the
+        //         repayment target after draw. The struct field was declared but never set.
+        loan.borrowerSourceAddressHash = borrowerXRPLHash;
 
         // ── Read FTSOv2 XRP/USD price (18 decimals, in wei) ──
         (uint256 xrpUsd18dp, uint64 feedTimestamp) =
@@ -361,7 +382,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         // The receivingAddressHash in the proof must match the address the borrower
         // registered at draw time. This prevents someone repaying from a different
         // XRPL address to an attacker-controlled receiver while reusing our memo.
-        bytes32 expectedReceiver = borrowerXRPLAddressHash[loan.borrower];
+        // L5 fix: check against the per-loan snapshot (set at draw time), not the
+        //         mutable global that the borrower can re-register.
+        bytes32 expectedReceiver = loan.borrowerSourceAddressHash;
         if (expectedReceiver == bytes32(0)) revert XRPLAddressNotRegistered();
         if (resp.receivingAddressHash != expectedReceiver) {
             revert RepaymentReceiverMismatch(expectedReceiver, resp.receivingAddressHash);

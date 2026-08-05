@@ -1045,14 +1045,15 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        // Borrower1 changes their XRPL address AFTER drawing — old registration
-        // should no longer be accepted (protects against address hijack).
+        // L5 fix: the XRPL hash is snapshotted onto the loan at draw time. Re-binding
+        // after draw does NOT change the expected receiver — the proof must match
+        // the snapshot. A proof with a wrong receiver should still revert.
         vm.prank(borrower1);
         vault.registerXRPLAddress(keccak256("rNewBorrower1Address"));
 
-        // Old receiver hash is now stale
+        // Proof with a receiver that doesn't match the draw-time snapshot
         IXRPPayment.Proof memory proof = _buildProof(
-            loan.requiredRepaymentDrops, loan.expectedCommitment, keccak256("rCreditGateBorrower1")
+            loan.requiredRepaymentDrops, loan.expectedCommitment, keccak256("rWrongReceiver")
         );
         fdc.setResult(true);
 
@@ -1060,8 +1061,8 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vm.expectRevert(
             abi.encodeWithSelector(
                 CreditGateTypes.RepaymentReceiverMismatch.selector,
-                keccak256("rNewBorrower1Address"),
-                keccak256("rCreditGateBorrower1")
+                keccak256("rCreditGateBorrower1"), // snapshot from draw time
+                keccak256("rWrongReceiver")
             )
         );
         vault.submitRepaymentProof(loanId, proof);
