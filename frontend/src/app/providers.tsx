@@ -9,12 +9,18 @@ import { CREDIT_GATE_CONFIG } from "@/config/contract";
 
 const queryClient = new QueryClient();
 
-const connectors = connectorsForWallets([
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Recommended",
+      wallets: [metaMaskWallet],
+    },
+  ],
   {
-    groupName: "Recommended",
-    wallets: [metaMaskWallet],
-  },
-]);
+    appName: "CreditGate",
+    projectId: "creditgate-demo", // public demo id; no walletconnect sessions needed for demo
+  }
+);
 
 export const config = createConfig({
   chains: [

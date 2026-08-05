@@ -8,11 +8,12 @@ import { CREDIT_GATE_ABI } from "@/lib/abi";
 export default function TransparencyPage() {
   const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
 
-  const { data: owner } = useReadContract({
+  const { data: ownerRaw } = useReadContract({
     address: vaultAddress,
     abi: CREDIT_GATE_ABI,
     functionName: "owner",
   });
+  const owner = (ownerRaw ?? "") as string;
 
   const { data: paused } = useReadContract({
     address: vaultAddress,

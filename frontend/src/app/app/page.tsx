@@ -23,13 +23,14 @@ export default function AppPage() {
   });
 
   // Read borrower loans
-  const { data: borrowerLoanIds } = useReadContract({
+  const { data: borrowerLoanIdsRaw } = useReadContract({
     address: vaultAddress,
     abi: CREDIT_GATE_ABI,
     functionName: "getBorrowerLoanIds",
     args: address ? [address] : undefined,
     query: { enabled: !!address },
   });
+  const borrowerLoanIds: bigint[] = (borrowerLoanIdsRaw ?? []) as bigint[];
 
   // Write contract hooks
   const { writeContract: depositCollateral, isPending: isDepositing } = useWriteContract();
@@ -190,9 +191,30 @@ function LoanCard({ loanId }: { loanId: bigint }) {
 
   if (!loan) return null;
 
-  const [borrower, collateralAmount, loanAmount, requiredRepaymentDrops, deadline, eligibilityExpiry, eligibilityNonce, expectedCommitment, state] = loan;
+  // wagmi returns the tuple as an object with named fields (from the ABI)
+  const loanObj = loan as unknown as {
+    borrower: `0x${string}`;
+    collateralAmount: bigint;
+    loanAmount: bigint;
+    requiredRepaymentDrops: bigint;
+    deadline: bigint;
+    eligibilityExpiry: bigint;
+    eligibilityNonce: bigint;
+    expectedCommitment: `0x${string}`;
+    state: bigint;
+  };
+  const borrower = loanObj.borrower;
+  const collateralAmount = loanObj.collateralAmount;
+  const loanAmount = loanObj.loanAmount;
+  const requiredRepaymentDrops = loanObj.requiredRepaymentDrops;
+  const deadline = loanObj.deadline;
+  const eligibilityExpiry = loanObj.eligibilityExpiry;
+  const eligibilityNonce = loanObj.eligibilityNonce;
+  const expectedCommitment = loanObj.expectedCommitment;
+  const state = loanObj.state;
 
-  const stateName = LOAN_STATES[state as keyof typeof LOAN_STATES] || "UNKNOWN";
+  const stateName = LOAN_STATES[Number(state) as keyof typeof LOAN_STATES] || "UNKNOWN";
+  const stateNum = Number(state);
 
   const handleWithdraw = () => {
     withdrawCollateral({
@@ -220,13 +242,13 @@ function LoanCard({ loanId }: { loanId: bigint }) {
         <div className="text-right">
           <span
             className={`px-2 py-1 rounded text-xs font-semibold ${
-              state === 1
+              stateNum === 1
                 ? "bg-yellow-900 text-yellow-300"
-                : state === 3
+                : stateNum === 3
                 ? "bg-green-900 text-green-300"
-                : state === 4
+                : stateNum === 4
                 ? "bg-blue-900 text-blue-300"
-                : state === 6
+                : stateNum === 6
                 ? "bg-gray-700 text-gray-300"
                 : "bg-gray-700 text-gray-400"
             }`}
@@ -235,7 +257,7 @@ function LoanCard({ loanId }: { loanId: bigint }) {
           </span>
         </div>
       </div>
-      {state === 1 && (
+      {stateNum === 1 && (
         <button
           onClick={handleWithdraw}
           disabled={isPending}
