@@ -136,4 +136,6 @@ contract CreditGateTypes {
     error ProofAlreadyConsumed();
     error FDCVerificationFailed();
     error DeadlineNotPassed();
+    error XRPLAddressNotRegistered();
+    error RepaymentReceiverMismatch(bytes32 expected, bytes32 provided);
 }

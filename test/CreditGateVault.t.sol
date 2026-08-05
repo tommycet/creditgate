@@ -82,6 +82,12 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         fxrp.approve(address(vault), type(uint256).max);
         vm.prank(borrower2);
         fxrp.approve(address(vault), type(uint256).max);
+
+        // Register XRPL addresses (standard address hash of r-address)
+        vm.prank(borrower1);
+        vault.registerXRPLAddress(keccak256("rCreditGateBorrower1"));
+        vm.prank(borrower2);
+        vault.registerXRPLAddress(keccak256("rCreditGateBorrower2"));
     }
 
     // ═══════════════════ Helper: Sign eligibility attestation ═══════════════════
@@ -113,14 +119,15 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
 
     function _buildProof(
         uint256 requiredDrops,
-        bytes32 memoData
+        bytes32 memoData,
+        bytes32 receiverHash
     ) internal view returns (IXRPPayment.Proof memory) {
         IXRPPayment.ResponseBody memory respBody = IXRPPayment.ResponseBody({
             blockNumber: 1,
             blockTimestamp: uint64(block.timestamp),
             sourceAddress: "rTestAddress",
             sourceAddressHash: keccak256("source"),
-            receivingAddressHash: keccak256("receiver"),
+            receivingAddressHash: receiverHash,
             intendedReceivingAddressHash: bytes32(0),
             spentAmount: int256(uint256(requiredDrops)),
             intendedSpentAmount: int256(uint256(requiredDrops)),
@@ -784,7 +791,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
         bytes32 commitment = loan.expectedCommitment;
 
-        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, commitment);
+        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, commitment, keccak256("rCreditGateBorrower1"));
 
         fdc.setResult(true);
 
@@ -806,7 +813,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, loan.expectedCommitment);
+        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, loan.expectedCommitment, keccak256("rCreditGateBorrower1"));
 
         fdc.setResult(false); // FDC verification fails
 
@@ -822,7 +829,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, loan.expectedCommitment);
+        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, loan.expectedCommitment, keccak256("rCreditGateBorrower1"));
 
         fdc.setResult(true);
 
@@ -852,7 +859,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
         // Build proof with WRONG commitment
         bytes32 wrongCommitment = keccak256("wrong");
-        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, wrongCommitment);
+        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, wrongCommitment, keccak256("rCreditGateBorrower1"));
 
         fdc.setResult(true);
 
@@ -876,7 +883,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
         // Build proof with LESS than required drops
         uint256 shortDrops = loan.requiredRepaymentDrops / 2;
-        IXRPPayment.Proof memory proof = _buildProof(shortDrops, loan.expectedCommitment);
+        IXRPPayment.Proof memory proof = _buildProof(shortDrops, loan.expectedCommitment, keccak256("rCreditGateBorrower1"));
 
         fdc.setResult(true);
 
@@ -895,7 +902,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vm.prank(borrower1);
         uint256 loanId = vault.depositCollateral(DEPOSIT_100_FXRP);
 
-        IXRPPayment.Proof memory proof = _buildProof(100e6, bytes32(0));
+        IXRPPayment.Proof memory proof = _buildProof(100e6, bytes32(0), keccak256("rCreditGateBorrower1"));
 
         vm.prank(borrower1);
         vm.expectRevert(
@@ -915,7 +922,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, loan.expectedCommitment);
+        IXRPPayment.Proof memory proof = _buildProof(loan.requiredRepaymentDrops, loan.expectedCommitment, keccak256("rCreditGateBorrower1"));
         fdc.setResult(true);
 
         vm.prank(borrower2);
@@ -952,6 +959,112 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
 
     function test_loanId_startsWithOne() public view {
         assertEq(vault.nextLoanId(), 1);
+    }
+
+    // ═══════════════════ XRPL ADDRESS BINDING TESTS ═══════════════════
+
+    function test_registerXRPLAddress_happyPath() public {
+        vm.prank(borrower1);
+        vault.registerXRPLAddress(keccak256("rNewAddress"));
+        assertEq(vault.borrowerXRPLAddressHash(borrower1), keccak256("rNewAddress"));
+    }
+
+    function test_registerXRPLAddress_revertsOnZero() public {
+        vm.prank(borrower1);
+        vm.expectRevert("ZeroHash");
+        vault.registerXRPLAddress(bytes32(0));
+    }
+
+    function test_registerXRPLAddress_revertsWhenPaused() public {
+        vault.pause();
+        vm.prank(borrower1);
+        vm.expectRevert("Paused");
+        vault.registerXRPLAddress(keccak256("rNewAddress"));
+    }
+
+    function test_drawLoan_revertsIfXRPLNotRegistered() public {
+        // A borrower who never registered their XRPL address cannot draw
+        address unregistered = makeAddr("unregistered");
+        fxrp.mint(unregistered, 1_000e6);
+        vm.prank(unregistered);
+        fxrp.approve(address(vault), type(uint256).max);
+
+        vm.startPrank(unregistered);
+        uint256 loanId = vault.depositCollateral(DEPOSIT_100_FXRP);
+        vault.requestEligibility(loanId);
+        vm.stopPrank();
+
+        uint64 expiry = uint64(block.timestamp + 1 hours);
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(
+            unregistered, LOAN_150_USDT, expiry, 0, 0
+        );
+        vm.prank(unregistered);
+        vault.submitEligibility(loanId, CreditGateTypes.EligibilityAttestation({
+            borrower: unregistered,
+            limit: LOAN_150_USDT,
+            expiry: expiry,
+            nonce: 0,
+            revocationVersion: 0,
+            v: v, r: r, s: s
+        }));
+
+        // XRPL not registered → cannot draw
+        vm.prank(unregistered);
+        vm.expectRevert(CreditGateTypes.XRPLAddressNotRegistered.selector);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+    }
+
+    function test_submitRepaymentProof_revertsIfReceiverMismatch() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        // Build proof with WRONG receiver (attacker's XRPL address)
+        bytes32 wrongReceiver = keccak256("rAttackerAddress");
+        IXRPPayment.Proof memory proof = _buildProof(
+            loan.requiredRepaymentDrops, loan.expectedCommitment, wrongReceiver
+        );
+
+        fdc.setResult(true);
+
+        vm.prank(borrower1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditGateTypes.RepaymentReceiverMismatch.selector,
+                keccak256("rCreditGateBorrower1"),
+                wrongReceiver
+            )
+        );
+        vault.submitRepaymentProof(loanId, proof);
+    }
+
+    function test_submitRepaymentProof_receiverMustMatchRegistration() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        // Borrower1 changes their XRPL address AFTER drawing — old registration
+        // should no longer be accepted (protects against address hijack).
+        vm.prank(borrower1);
+        vault.registerXRPLAddress(keccak256("rNewBorrower1Address"));
+
+        // Old receiver hash is now stale
+        IXRPPayment.Proof memory proof = _buildProof(
+            loan.requiredRepaymentDrops, loan.expectedCommitment, keccak256("rCreditGateBorrower1")
+        );
+        fdc.setResult(true);
+
+        vm.prank(borrower1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditGateTypes.RepaymentReceiverMismatch.selector,
+                keccak256("rNewBorrower1Address"),
+                keccak256("rCreditGateBorrower1")
+            )
+        );
+        vault.submitRepaymentProof(loanId, proof);
     }
 
     function test_twoSequentialLoans() public {

@@ -52,6 +52,13 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @dev Tracks the active loan id per borrower slot used to scope withdrawal/eligibility.
     mapping(address => uint256[]) public borrowerLoanIds;
 
+    // ═══════════════════ Borrower XRPL Address Binding ═══════════════════
+    /// @dev Maps an EVM borrower to their XRPL r-address (as standard address hash).
+    ///      This binds the FDC repayment proof's receivingAddressHash to the borrower,
+    ///      preventing repayment substitution attacks where someone repays to a
+    ///      different XRPL address but reuses a valid memo commitment.
+    mapping(address => bytes32) public borrowerXRPLAddressHash;
+
     // ═══════════════════ Modifiers ═══════════════════
 
     modifier onlyOwner() {
@@ -112,6 +119,15 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (borrowerRevocationVersion[borrower] < type(uint8).max) {
             borrowerRevocationVersion[borrower] += 1;
         }
+    }
+
+    /// @notice Register the borrower's XRPL r-address (as a standard address hash).
+    ///         Required before drawing a loan — the FDC repayment proof's
+    ///         receivingAddressHash must match this binding.
+    /// @param xrplAddressHash keccak256(bytes(xrplAddress))
+    function registerXRPLAddress(bytes32 xrplAddressHash) external whenNotPaused {
+        require(xrplAddressHash != bytes32(0), "ZeroHash");
+        borrowerXRPLAddressHash[msg.sender] = xrplAddressHash;
     }
 
     // ═══════════════════ Borrower Flow ═══════════════════
@@ -258,6 +274,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         require(loan.borrower == msg.sender, "NotBorrower");
         if (loanAmount == 0) revert ZeroAmount();
 
+        // Borrower must have registered their XRPL address before borrowing.
+        bytes32 borrowerXRPLHash = borrowerXRPLAddressHash[msg.sender];
+        if (borrowerXRPLHash == bytes32(0)) revert XRPLAddressNotRegistered();
+
         // ── Read FTSOv2 XRP/USD price (18 decimals, in wei) ──
         (uint256 xrpUsd18dp, uint64 feedTimestamp) =
             FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
@@ -336,6 +356,17 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (uint256(int256(resp.receivedAmount)) < loan.requiredRepaymentDrops) {
             revert InsufficientRepayment(resp.receivedAmount, loan.requiredRepaymentDrops);
         }
+
+        // Bind repayment to the borrower's registered XRPL address.
+        // The receivingAddressHash in the proof must match the address the borrower
+        // registered at draw time. This prevents someone repaying from a different
+        // XRPL address to an attacker-controlled receiver while reusing our memo.
+        bytes32 expectedReceiver = borrowerXRPLAddressHash[loan.borrower];
+        if (expectedReceiver == bytes32(0)) revert XRPLAddressNotRegistered();
+        if (resp.receivingAddressHash != expectedReceiver) {
+            revert RepaymentReceiverMismatch(expectedReceiver, resp.receivingAddressHash);
+        }
+
         if (!resp.hasMemoData) revert MemoDataMissing();
         if (resp.firstMemoData.length != 32) {
             revert MemoDataWrongLength(resp.firstMemoData.length, 32);
