@@ -78,6 +78,7 @@ type Handler struct {
 	signingKey    *ecdsa.PrivateKey
 	authorityAddr common.Address
 	collateralRatioBps *big.Int // e.g. 15000
+	xrpUsd18dp    *big.Int // XRP/USD in 18 decimals (e.g. 2.5e18)
 	// Simulated borrower limits; in production the TEE holds private data.
 	limits map[string]*big.Int
 	revoked map[string]bool
@@ -97,10 +98,15 @@ func NewHandler() (*Handler, error) {
 	if r := os.Getenv("COLLATERAL_RATIO_BPS"); r != "" {
 		ratio.SetString(r, 10)
 	}
+	xrpPrice := new(big.Int).SetUint64(2500000000000000000) // default 2.50 USD
+	if p := os.Getenv("XRP_USD_PRICE_18DP"); p != "" {
+		xrpPrice.SetString(p, 10)
+	}
 	return &Handler{
 		signingKey:        key,
 		authorityAddr:     crypto.PubkeyToAddress(key.PublicKey),
 		collateralRatioBps: ratio,
+		xrpUsd18dp:        xrpPrice,
 		limits:            map[string]*big.Int{},
 		revoked:           map[string]bool{},
 	}, nil
@@ -151,15 +157,17 @@ func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 	}
 
 	// ── Collateral sufficiency (mirrors vault logic) ──
-	// collateralValue18 = collateral * 1e12
-	// requiredValue18   = requested * 1e12 * ratio / 10000
-	oneE12 := new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
+	// Vault (drawLoan):
+	//   collateralUsd18 = collateral(6dp) * 1e12 * xrpUsd18dp / 1e18
+	//   require collateralUsd18 * 10000 >= loanUsd18(6dp*1e12) * collateralRatioBps
+	// Cancelling 1e12: collateral * xrpUsd18dp / 1e18 * 10000 >= requested * ratio
 	tenK := big.NewInt(10000)
-	collateralValue := new(big.Int).Mul(collateral, oneE12)
-	required := new(big.Int).Mul(requested, oneE12)
-	required.Mul(required, h.collateralRatioBps)
-	required.Div(required, tenK)
-	if collateralValue.Cmp(required) < 0 {
+	oneE18 := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	collateralUsd := new(big.Int).Mul(collateral, h.xrpUsd18dp) // collateral * price
+	collateralUsd.Div(collateralUsd, oneE18)
+	collateralUsd.Mul(collateralUsd, tenK)
+	required := new(big.Int).Mul(requested, h.collateralRatioBps)
+	if collateralUsd.Cmp(required) < 0 {
 		return h.result(false, "0", "INSUFFICIENT_COLLATERAL", nil)
 	}
 
