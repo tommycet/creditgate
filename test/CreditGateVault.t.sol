@@ -590,6 +590,34 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
     }
 
+    /// @dev Vault has insufficient USDT0 to disburse — safeTransfer reverts.
+    function test_drawLoan_revertsIfVaultInsufficientUsdt0() public {
+        uint256 loanId = _setupLoanToEligible();
+
+        // Drain the vault's USDT0 so it can't disburse
+        uint256 vaultBal = usdt0.balanceOf(address(vault));
+        usdt0.burn(address(vault), vaultBal);
+
+        vm.prank(borrower1);
+        // safeTransfer will revert (ERC20 insufficient balance)
+        vm.expectRevert();
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+    }
+
+    /// @dev L2 fix: FTSO feed timestamp in the future should NOT cause underflow panic
+    function test_drawLoan_ftsoFutureTimestampNoUnderflow() public {
+        uint256 loanId = _setupLoanToEligible();
+
+        // Set FTSO with a future timestamp (should not panic, just skip staleness check)
+        ftso.setValueInWei(2_5e17, uint64(block.timestamp + 1000));
+
+        vm.prank(borrower1);
+        // Should succeed — future timestamp skips the staleness check (L2 fix)
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        assertEq(uint8(vault.getLoan(loanId).state), uint8(LoanState.FUNDED));
+    }
+
     function test_drawLoan_revertsIfWrongState() public {
         vm.prank(borrower1);
         uint256 loanId = vault.depositCollateral(DEPOSIT_100_FXRP);

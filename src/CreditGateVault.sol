@@ -305,8 +305,11 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
 
         if (xrpUsd18dp == 0) revert FTSOPriceZero();
-        if (uint64(block.timestamp) - feedTimestamp > ftsoStalenessLimit) {
-            revert FTSOPriceStale(feedTimestamp, ftsoStalenessLimit);
+        // L2 fix: avoid underflow panic if feedTimestamp > block.timestamp
+        if (block.timestamp >= feedTimestamp) {
+            if (uint64(block.timestamp) - feedTimestamp > ftsoStalenessLimit) {
+                revert FTSOPriceStale(feedTimestamp, ftsoStalenessLimit);
+            }
         }
 
         // ── Collateral ratio check ──
