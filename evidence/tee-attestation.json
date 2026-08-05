@@ -1,0 +1,1 @@
+{"eligible":true,"limit":"100000000","reason":"","attestation":{"borrower":"0xDE62c19Ed5877f91A76D9FD44a1B86837b4Dce57","limit":"100000000","expiry":"1893456000","nonce":"0","revocationVersion":"0","v":27,"r":"d8174ec51b92248400a6427c43bb88fe7af37f045da8c74d2c629ce8a1cb4f00","s":"200618a0cf13cc45810fe44ee286b4ebf9237ea3f1e2460e177e056ff764d002"}}
