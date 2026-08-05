@@ -21,12 +21,12 @@ This demo shows the complete CreditGate lifecycle on Coston2 testnet:
 
 ### Step 2: Request Eligibility (5s)
 - Click "Request Eligibility"
-- FCC extension evaluates creditworthiness
-- EIP-191 attestation signed (simulated TEE)
+- FCC extension evaluates creditworthiness (Go handler, `fcc/credit-extension`)
+- EIP-191 attestation signed — **same payload the Solidity vault verifies** (proven by `test/CreditGateVault.go-tee-compat.t.sol`)
 
 ### Step 3: Submit Eligibility (5s)
 - Click "Submit Attestation"
-- Vault verifies TEE signature
+- Vault verifies TEE signature via `ecrecover` (the attestation from the Go handler is accepted verbatim — cross-language compatibility test)
 - Loan transitions to ELIGIBLE
 
 ### Step 4: Draw Loan (10s)
@@ -38,8 +38,8 @@ This demo shows the complete CreditGate lifecycle on Coston2 testnet:
 
 ### Step 5: Repay on XRPL (30s)
 - Switch to XRPL testnet wallet
-- Send 40 XRP drops to vault address
-- Include 32-byte commitment as MemoData
+- Send `requiredRepaymentDrops` XRP (shown on the loan card, computed by the vault as `loanAmount × 1e18 ÷ XRP/USD price`) to the vault's XRPL address
+- Include the 32-byte commitment as MemoData (shown on the loan card)
 - Transaction confirmed on XRPL
 
 ### Step 6: Verify Repayment (15s)
