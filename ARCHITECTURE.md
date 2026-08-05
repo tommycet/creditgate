@@ -123,6 +123,63 @@ Vault Checks (submitRepaymentProof):
 | FCC | Go handler (`fcc/credit-extension/extension/main.go`) | Private credit eligibility → EIP-191 attestation |
 | FdcRequestFeeConfigurations | `0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e` | Request fee for FDC attestation |
 
+## FCC Credit Evaluation Model (Gap #4)
+
+The Go FCC handler (`fcc/credit-extension/extension/handler/handler.go`) implements a real credit evaluation pipeline — not just a signature over a raw number:
+
+```
+POST /action  (JSON body from TEE proxy)
+  {
+    "opCommand": "EVALUATE",
+    "borrower": "0xDE62..."
+    "collateralAmount": "100000000",   // FXRP 6dp
+    "requestedLoan": "100000000",     // USDT0 6dp
+    "expiry": "1893456000",
+    "nonce": "0",
+    "revocationVersion": "0"
+  }
+
+Response (JSON):
+  {
+    "eligible": true,
+    "limit": "100000000",
+    "reason": "",
+    "attestation": {
+      "borrower": "0xDE62...",
+      "limit": "100000000",
+      "expiry": "1893456000",
+      "nonce": "0",
+      "revocationVersion": "0",
+      "v": 27,
+      "r": "d8174e...",
+      "s": "200618..."
+    }
+  }
+```
+
+### Evaluation pipeline (handler.go:133-185)
+
+1. **Input validation** — non-zero borrower, non-negative collateral/loan, parseable expiry/nonce
+2. **Revocation check** — if `eligibilityRevoked[borrower]` is true, deny with `BORROWER_REVOKED`
+3. **Collateral sufficiency** — mirrors vault's `drawLoan` math: `collateral * xrpUsdPrice / 1e18 * 10000 >= requested * collateralRatioBps`. If insufficient, deny with `INSUFFICIENT_COLLATERAL`
+4. **Limit derivation** — `limit = min(requested, borrowerLimit)` where `borrowerLimit` is a per-borrower cap (in production, derived from private off-chain credit data inside the TEE)
+5. **EIP-191 signing** — `keccak256(abi.encode(DOMAIN, borrower, limit, expiry, nonce, revocationVersion))` with the `\x19Ethereum Signed Message:\n32` prefix
+6. The signature `(v, r, s)` is returned to the borrower, who submits it to `CreditGateVault.submitEligibility`
+
+### Production vs simulated
+
+In production (per the [FCC Private Key Extension pattern](https://dev.flare.network/fcc/overview)):
+- The signing key is generated inside the TEE and never leaves the enclave
+- Credit data (credit score, income, debt-to-income) is fetched by the TEE from private data sources
+- The `limits` map is populated from the TEE's confidential computation, not hardcoded
+
+In the hackathon demo (SIMULATED_TEE mode):
+- The signing key is loaded from `CREDITGATE_SIGNING_KEY` env var (matches `TEE_AUTHORITY` in the vault)
+- The XRP/USD price and collateral ratio are configurable via env vars
+- The `limits` map is populated per-borrower at startup
+
+
+
 ## Security Fixes Applied (Audit-Verified)
 
 | ID | Severity | Fix |
