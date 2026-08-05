@@ -1,20 +1,48 @@
-# Compiler output
+# Solidity / Foundry compiler output
 out/
 cache/
 broadcast/
+lcov.info
+LC.info
+coverage/
+docs/
 
-# Node
+# Node / Next.js
 node_modules/
 .next/
+out/
+dist/
+build/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+.yarn/install-state.gz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# Environment
+# Environment (keep .env.example tracked)
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
@@ -24,12 +52,11 @@ Thumbs.db
 .ralph/state/
 .ralph/monitor/
 
-# Coverage
-lcov.info
-coverage/
-
 # Evidence (binary files, screenshots)
 evidence/screenshots/
 evidence/*.png
 evidence/*.jpg
 evidence/*.mp4
+
+# Logs
+*.log
