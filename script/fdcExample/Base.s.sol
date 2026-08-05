@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {Script, console} from "forge-std/Script.sol";
 import {IFdcHub} from "@flarenetwork/flare-periphery-contracts/src/coston2/IFdcHub.sol";
 import {IXRPPayment} from "@flarenetwork/flare-periphery-contracts/src/coston2/IXRPPayment.sol";
+import {IFdcRequestFeeConfigurations} from "@flarenetwork/flare-periphery-contracts/src/coston2/IFdcRequestFeeConfigurations.sol";
 
 /// @title FDC Base Script — Foundation for FDC attestation request scripts on Coston2
 /// @dev Provides utility functions for submitting FDC attestation requests.
@@ -21,6 +22,9 @@ import {IXRPPayment} from "@flarenetwork/flare-periphery-contracts/src/coston2/I
 abstract contract FDCBase is Script {
     // Coston2 FdcHub address (verified via ContractRegistry 2026-08-05)
     address constant FDC_HUB = 0x48aC463d7975828989331F4De43341627b9c5f1D;
+    // Coston2 FdcRequestFeeConfigurations (verified live via ContractRegistry 2026-08-05:
+    // cast call 0xaD67FE... "getContractAddressByName(string)(address)" "FdcRequestFeeConfigurations")
+    address constant FDC_REQUEST_FEE_CONFIGURATIONS = 0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e;
 
     // Attestation type name per Flare spec (UTF8 hex zero-padded to 32 bytes)
     // bytes32("XRPPayment") = "XRPPayment" left-padded with zeros.
@@ -54,8 +58,14 @@ abstract contract FDCBase is Script {
             requestBody: reqBody
         });
 
-        // Submit the attestation request
-        fdcHub.requestAttestation{value: 0}(abi.encode(request));
+        // ── Read the required request fee (official flow reads this before submit) ──
+        bytes memory abiEncodedRequest = abi.encode(request);
+        uint256 requestFee = IFdcRequestFeeConfigurations(FDC_REQUEST_FEE_CONFIGURATIONS)
+            .getRequestFee(abiEncodedRequest);
+        console.log("FDC request fee (wei):", requestFee);
+
+        // Submit the attestation request, paying the fee
+        fdcHub.requestAttestation{value: requestFee}(abiEncodedRequest);
 
         console.log("FDC attestation requested for tx:", vm.toString(transactionId));
         console.log("Proof owner:", proofOwner);
