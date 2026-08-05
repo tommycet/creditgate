@@ -75,6 +75,17 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     // ═══════════════════ Constructor ═══════════════════
 
+    /// @notice Initialize the vault with token addresses, risk parameters, and Flare infra.
+    /// @dev    Sets the deployer as `owner`. All address parameters must be non-zero and
+    ///         `collateralRatioBps` must be > 0.
+    /// @param  _fxrp                FXRP collateral token (6 decimals).
+    /// @param  _usdt0               USDT0 loan token (6 decimals).
+    /// @param  _teeAuthority        Authorized TEE signer for eligibility attestations.
+    /// @param  _collateralRatioBps  Required collateral ratio in basis points (e.g. 15000 = 150%).
+    /// @param  _ftsoStalenessLimit  Maximum acceptable FTSO feed age in seconds.
+    /// @param  _loanDuration        Loan lifetime in seconds from draw to deadline.
+    /// @param  _ftsoV2              FtsoV2 contract address for XRP/USD price feeds.
+    /// @param  _fdcVerification     FdcVerification contract address for XRPPayment proofs.
     constructor(
         address _fxrp,
         address _usdt0,
@@ -105,16 +116,21 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     // ═══════════════════ Owner / Admin ═══════════════════
 
+    /// @notice Pause the vault. Blocks all `whenNotPaused` borrower actions while paused.
+    /// @dev    Only callable by `owner`. Sets the `paused` flag to true.
     function pause() external onlyOwner {
         paused = true;
     }
 
+    /// @notice Unpause the vault, re-enabling borrower actions.
+    /// @dev    Only callable by `owner`. Clears the `paused` flag.
     function unpause() external onlyOwner {
         paused = false;
     }
 
     /// @notice Mark a borrower's eligibility as revoked. Bumps revocation version so any
     ///         outstanding eligibility attestation with an older version is rejected.
+    /// @param  borrower The borrower whose eligibility is being revoked.
     function revokeEligibility(address borrower) external onlyOwner {
         eligibilityRevoked[borrower] = true;
         // Bump revocation version (cap at max uint8 to avoid overflow wrap).
@@ -142,6 +158,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @dev   Pulls `amount` of FXRP from the caller via `transferFrom`. Creates a Loan
     ///        in state `COLLATERAL_DEPOSITED` and assigns the next monotonic loan id.
     ///        Reverts on zero amount or failed transfer.
+    /// @param  amount  Amount of FXRP (6 decimals) to deposit as collateral.
+    /// @return loanId  The id assigned to the newly created loan.
     function depositCollateral(uint256 amount)
         external
         nonReentrant
@@ -167,6 +185,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @notice Withdraw FXRP collateral. Only allowed while the loan is still in the
     ///         `COLLATERAL_DEPOSITED` state, i.e. before any eligibility has been
     ///         requested/granted. Returns the borrower to IDLE for this loan slot.
+    /// @param  loanId  The loan slot whose collateral should be withdrawn.
     function withdrawCollateral(uint256 loanId) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
         if (loan.state != LoanState.COLLATERAL_DEPOSITED) {
@@ -187,6 +206,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///         the loan from `COLLATERAL_DEPOSITED` to `ELIGIBILITY_PENDING` and snapshots
     ///         the per-borrower eligibility nonce. The borrower then submits the signed
     ///         attestation via `submitEligibility`.
+    /// @param  loanId  The loan slot requesting eligibility.
     function requestEligibility(uint256 loanId) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
         if (loan.state != LoanState.COLLATERAL_DEPOSITED) {
@@ -204,6 +224,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @notice Submit a TEE-signed eligibility attestation and advance to `ELIGIBLE` or
     ///         `REJECTED`. Verifies the EIP-191 signature over the eligibility payload
     ///         against `teeAuthority`.
+    /// @param  loanId      The loan slot being advanced from `ELIGIBILITY_PENDING`.
+    /// @param  attestation The signed eligibility attestation from the TEE authority.
     function submitEligibility(uint256 loanId, EligibilityAttestation calldata attestation)
         external
         nonReentrant
@@ -277,6 +299,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///         borrower and transitions to `FUNDED`.
     /// @dev   `msg.value` is forwarded to the (payable) `getFeedByIdInWei` call to cover
     ///         any FTSO query fee on Flare. On Coston2 the fee is currently zero.
+    /// @param  loanId     The eligible loan slot to draw against.
+    /// @param  loanAmount Amount of USDT0 (6 decimals) to borrow.
     function drawLoan(uint256 loanId, uint256 loanAmount)
         external
         payable
@@ -361,6 +385,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///         received amount ≥ required drops, and the memo matches `expectedCommitment`.
     ///         On success, releases FXRP collateral to the borrower and transitions to
     ///         `CLOSED`.
+    /// @param  loanId The funded loan being repaid.
+    /// @param  proof  The Flare FDC XRPPayment proof from the attestation provider.
     function submitRepaymentProof(uint256 loanId, IXRPPayment.Proof calldata proof)
         external
         nonReentrant
@@ -423,6 +449,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     /// @notice Liquidate a funded loan whose repayment deadline has passed. Seizes the
     ///         FXRP collateral (stays in the vault) and transitions to `DEFAULTED`.
+    /// @param  loanId The funded loan to liquidate.
     function liquidate(uint256 loanId) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
         if (loan.state != LoanState.FUNDED) {
@@ -442,6 +469,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///         the contract owner. Sends the seized collateral to the owner.
     /// @dev    L4 fix from security audit — without this, defaulted collateral
     ///         is permanently locked in the vault (bad for demo evidence).
+    /// @param  loanId The defaulted loan whose collateral should be recovered.
     function recoverDefaultedCollateral(uint256 loanId) external onlyOwner nonReentrant {
         Loan storage loan = loans[loanId];
         if (loan.state != LoanState.DEFAULTED) {
@@ -457,10 +485,16 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     // ═══════════════════ Views ═══════════════════
 
+    /// @notice Fetch the full Loan struct for a given loan id.
+    /// @param  loanId The loan id to look up.
+    /// @return The Loan struct (memory copy) for the given id.
     function getLoan(uint256 loanId) external view returns (Loan memory) {
         return loans[loanId];
     }
 
+    /// @notice Fetch all loan ids opened by a borrower (across all states).
+    /// @param  borrower The borrower address to look up.
+    /// @return Array of loan ids belonging to the borrower.
     function getBorrowerLoanIds(address borrower)
         external
         view
