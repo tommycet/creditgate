@@ -48,6 +48,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     mapping(address => uint8) public borrowerRevocationVersion; // current revocation version
     mapping(address => bool) public eligibilityRevoked; // fast-revoke flag
     mapping(bytes32 => bool) public proofConsumed; // anti-replay for FDC proofs
+    mapping(uint256 => uint256) public seizedCollateral; // L4: tracks seized amount per defaulted loan
 
     /// @dev Tracks the active loan id per borrower slot used to scope withdrawal/eligibility.
     mapping(address => uint256[]) public borrowerLoanIds;
@@ -423,10 +424,26 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         uint256 collateralSeized = loan.collateralAmount;
         loan.collateralAmount = 0;
         loan.state = LoanState.DEFAULTED;
-        // Collateral remains in the vault — owner may recover via a separate function
-        // (intentionally not exposed here to keep the scope of this hackathon contract small).
+        seizedCollateral[loanId] = collateralSeized; // L4: track for recovery
 
         emit LoanDefaulted(loanId, loan.borrower, collateralSeized);
+    }
+
+    /// @notice Recover FXRP collateral from a defaulted loan. Only callable by
+    ///         the contract owner. Sends the seized collateral to the owner.
+    /// @dev    L4 fix from security audit — without this, defaulted collateral
+    ///         is permanently locked in the vault (bad for demo evidence).
+    function recoverDefaultedCollateral(uint256 loanId) external onlyOwner nonReentrant {
+        Loan storage loan = loans[loanId];
+        if (loan.state != LoanState.DEFAULTED) {
+            revert InvalidLoanState(loan.state, LoanState.DEFAULTED);
+        }
+        uint256 amount = seizedCollateral[loanId];
+        require(amount > 0, "NoCollateralToRecover");
+        seizedCollateral[loanId] = 0;
+        loan.state = LoanState.IDLE; // fully resolved
+        fxrp.safeTransfer(owner, amount);
+        emit CollateralRecovered(loanId, owner, amount);
     }
 
     // ═══════════════════ Views ═══════════════════

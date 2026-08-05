@@ -115,6 +115,12 @@ contract CreditGateTypes {
         uint256 collateralSeized
     );
 
+    event CollateralRecovered(
+        uint256 indexed loanId,
+        address indexed owner,
+        uint256 amount
+    );
+
     // ═══════════════════ Custom Errors ═══════════════════
 
     error ZeroAmount();

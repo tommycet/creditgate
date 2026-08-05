@@ -630,6 +630,48 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
         assertEq(uint8(loan.state), uint8(LoanState.DEFAULTED));
         assertEq(loan.collateralAmount, 0);
+        assertEq(vault.seizedCollateral(loanId), DEPOSIT_100_FXRP);
+    }
+
+    function test_recoverDefaultedCollateral_happyPath() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vault.liquidate(loanId);
+
+        // Owner recovers the seized collateral
+        uint256 ownerBefore = fxrp.balanceOf(owner);
+        vault.recoverDefaultedCollateral(loanId);
+        assertEq(fxrp.balanceOf(owner), ownerBefore + DEPOSIT_100_FXRP);
+        assertEq(uint8(vault.getLoan(loanId).state), uint8(LoanState.IDLE));
+        assertEq(vault.seizedCollateral(loanId), 0);
+    }
+
+    function test_recoverDefaultedCollateral_revertsIfNotOwner() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vault.liquidate(loanId);
+
+        vm.prank(borrower1);
+        vm.expectRevert("NotOwner");
+        vault.recoverDefaultedCollateral(loanId);
+    }
+
+    function test_recoverDefaultedCollateral_revertsIfNotDefaulted() public {
+        vm.prank(borrower1);
+        uint256 loanId = vault.depositCollateral(DEPOSIT_100_FXRP);
+        // Not defaulted — still COLLATERAL_DEPOSITED
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditGateTypes.InvalidLoanState.selector,
+                LoanState.COLLATERAL_DEPOSITED,
+                LoanState.DEFAULTED
+            )
+        );
+        vault.recoverDefaultedCollateral(loanId);
     }
 
     function test_liquidate_revertsIfDeadlineNotPassed() public {

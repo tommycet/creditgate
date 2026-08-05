@@ -29,6 +29,7 @@ export const CREDIT_GATE_ABI = [
   "function drawLoan(uint256 loanId, uint256 loanAmount) payable",
   "function submitRepaymentProof(uint256 loanId, tuple(bytes32[] merkleProof, tuple(bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, tuple(bytes32 transactionId, address proofOwner) requestBody, tuple(uint64 blockNumber, uint64 blockTimestamp, string sourceAddress, bytes32 sourceAddressHash, bytes32 receivingAddressHash, bytes32 intendedReceivingAddressHash, int256 spentAmount, int256 intendedSpentAmount, int256 receivedAmount, int256 intendedReceivedAmount, bool hasMemoData, bytes firstMemoData, bool hasDestinationTag, uint256 destinationTag, uint8 status) responseBody) data) proof)",
   "function liquidate(uint256 loanId)",
+  "function recoverDefaultedCollateral(uint256 loanId)",
 
   // Events
   "event CollateralDeposited(uint256 indexed loanId, address indexed borrower, uint256 amount)",
