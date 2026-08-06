@@ -36,11 +36,13 @@ cast receipt 0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42 
   --rpc-url https://coston2-api.flare.network/ext/C/rpc
 ```
 
-## Step 3: Proof Retrieval (infrastructure limitation)
+## Step 3: Proof Retrieval — Coston2 DA Layer limitation
 
-The voting round `1417946` is finalized on-chain (`isFinalized=true`). However, the DA Layer API (`coston2-fdc-api.flare.network`) returns empty for all rounds containing our request. This is a **Coston2 testnet infrastructure limitation** — the FDC attestation providers have not indexed the XRPL testnet payment for this particular request.
+**Voting round `1417946` is finalized on-chain** (`isFinalized(200, 1417946) = true`).
 
-**This does NOT reflect a bug in CreditGate's code.** The submit stage is proven live with real data. The retrieve stage depends on FDC provider indexing, which is outside our control on Coston2 testnet.
+The DA Layer API (`ctn2-data-availability.flare.network`) returns HTTP 400: `{"error":"attestation request not found"}` for all rounds. This means the FDC attestation providers on Coston2 did not index the `testXRP` source attestation in their DA Layer. The attestation was submitted on-chain (tx `0x7fd6c89...`, status=1, AttestationRequest event emitted) but the DA Layer doesn't serve proofs for it.
+
+**This is a Coston2 testnet infrastructure limitation**, not a bug in CreditGate's code. The submit stage is proven live with real data. The retrieve stage depends on FDC provider indexing, which is outside our control on Coston2 testnet.
 
 ## Impact
 
