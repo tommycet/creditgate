@@ -129,7 +129,7 @@ func NewHandler() (*Handler, error) {
 			ratio = v
 		}
 	}
-	xrpPrice := new(big.Int).SetUint64(2500000000000000000) // default 2.50 USD
+	xrpPrice := new(big.Int).SetUint64(1000000000000000000) // default 1.00 USD (live FTSO price Aug 2026)
 	if p := os.Getenv("XRP_USD_PRICE_18DP"); p != "" {
 		v, ok := new(big.Int).SetString(p, 10)
 		if !ok || v.Sign() <= 0 {

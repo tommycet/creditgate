@@ -133,7 +133,9 @@ cp .env.example .env   # fill PRIVATE_KEY, TEE_AUTHORITY, FTSO_V2_ADDRESS
 forge script script/DeployCreditGate.s.sol --rpc-url coston2 --broadcast
 ```
 
-**Deployed address:** `<DEPLOYED_ADDRESS>` *(faucet address `0x5a3969F3767Cde96D662A94cAa79779073F80A0c` pending Coston2 funding)*
+**Deployed address:** `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`
+
+Live on Coston2 (verified 2026-08-06). Deploy tx: `0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb`. Vault seeded with 5 FXRP collateral (approve tx `0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8`, deposit tx `0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149`). Owner: `0x5a3969F3767Cde96D662A94cAa79779073F80A0c`.
 
 ---
 

@@ -143,7 +143,7 @@ Reproduce any verdict's evidence: `cat planning/<review>/verdict.md`.
 
 | Contract | Address |
 |----------|---------|
-| CreditGateVault | `<DEPLOYED_ADDRESS>` *(faucet address `0x5a3969F3767Cde96D662A94cAa79779073F80A0c` pending Coston2 funding)* |
+| CreditGateVault | `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` |
 | FXRP | `0x0b6A3645c240605887a5532109323A3E12273dc7` |
 | USDT0 | `0x479854495cefBc8D12B971A3Ec4d18E6dbcE81a3` |
 | FdcVerification | `0x906507E0B64bcD494Db73bd0459d1C667e14B933` |
@@ -152,6 +152,21 @@ Reproduce any verdict's evidence: `cat planning/<review>/verdict.md`.
 cp .env.example .env   # fill PRIVATE_KEY, TEE_AUTHORITY, FTSO_V2_ADDRESS
 forge script script/DeployCreditGate.s.sol --rpc-url coston2 --broadcast
 ```
+
+### Live Deployment on Coston2
+
+CreditGateVault is **deployed and live** on Coston2 (verified 2026-08-06).
+
+| Artifact | Value |
+|----------|-------|
+| Vault address | `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` |
+| Deploy tx | [`0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb`](https://coston2-explorer.flare.network/tx/0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb) |
+| FXRP approve tx | [`0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8`](https://coston2-explorer.flare.network/tx/0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8) |
+| FXRP deposit tx | [`0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149`](https://coston2-explorer.flare.network/tx/0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149) |
+| VFXRP deposited | 5,000,000 (5 FXRP, 6 dp) |
+| Owner | `0x5a3969F3767Cde96D662A94cAa79779073F80A0c` |
+
+The vault holds 5 FXRP of live collateral and is ready to draw loans against the FTSOv2 XRP/USD price feed.
 
 ### Evidence Modes
 

@@ -1,13 +1,16 @@
 // CreditGate Contract Configuration for Coston2
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const vaultAddr: string = (process.env.NEXT_PUBLIC_VAULT_ADDRESS as string) || ZERO_ADDRESS;
-// S1: hard guard — if the vault address is the zero address (env var unset),
+// Live deployed CreditGateVault on Coston2 (broadcast 2026-08-06).
+// Used as the fallback when NEXT_PUBLIC_VAULT_ADDRESS is unset.
+const DEPLOYED_VAULT_ADDRESS = "0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939";
+const vaultAddr: string = (process.env.NEXT_PUBLIC_VAULT_ADDRESS as string) || DEPLOYED_VAULT_ADDRESS;
+// S1: hard guard — if the vault address is the zero address (env var explicitly set to zero),
 // callers must refuse to render contract UI so no tx is ever sent to address(0).
 export const isConfigured: boolean = vaultAddr !== ZERO_ADDRESS;
 export { ZERO_ADDRESS };
 if (!isConfigured) {
   console.warn(
-    "NEXT_PUBLIC_VAULT_ADDRESS not set. Set it in .env.local to your deployed CreditGateVault address on Coston2."
+    "NEXT_PUBLIC_VAULT_ADDRESS set to the zero address. Set it in .env.local to your deployed CreditGateVault address on Coston2."
   );
 }
 
