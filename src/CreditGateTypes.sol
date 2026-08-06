@@ -197,6 +197,16 @@ contract CreditGateTypes {
         address indexed newOwner
     );
 
+    /// @notice Emitted when an owner updates the LTV (loan-to-value) ratio for a
+    ///         collateral token. Both values are in basis points (e.g. 7500 = 75%).
+    ///         Added by subagent #55 to support multi-collateral borrowing
+    ///         ("borrow stablecoins against XRP" trend, 2026-08-06).
+    event LTVUpdated(
+        address indexed collateralToken,
+        uint256 oldLTV,
+        uint256 newLTV
+    );
+
     // ═══════════════════ Custom Errors ═══════════════════
 
     error ZeroAmount();
@@ -227,4 +237,8 @@ contract CreditGateTypes {
     error AuctionExpired();      // the auction window has ended (no further bids)
     error InsufficientBid();      // bid is not higher than the current highest bid
     error NotInAuctionState();   // loan is not currently in the AUCTION state
+
+    // ── LTV configuration errors (added by subagent #55) ──
+    error InvalidLTV(uint256 newLTV);          // LTV must be in (0, 10000] bps
+    error UnknownCollateral(address token);    // collateral token not registered
 }

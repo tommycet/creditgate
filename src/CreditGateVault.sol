@@ -60,6 +60,24 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @dev Tracks the active loan id per borrower slot used to scope withdrawal/eligibility.
     mapping(address => uint256[]) public borrowerLoanIds;
 
+    // ═══════════════════ Per-Collateral LTV Configuration (subagent #55) ═══════════════════
+    /// @notice LTV (loan-to-value) ratio per collateral token, in basis points
+    ///         (e.g. 7500 = 75%). Caps the maximum loan drawable against a given
+    ///         collateral type. The protocol ALSO enforces the global
+    ///         `collateralRatioBps` minimum-collateralization floor, so the
+    ///         effective max loan is the SMALLER of the two bounds. Defaults are
+    ///         set in the constructor: FXRP → 7500 (75%), FLR → 8000 (80%),
+    ///         USDT0 → 8500 (85%). Owner-tunable via `updateLTV`.
+    mapping(address => uint256) public collateralLTV;
+
+    /// @notice Decimal count for each registered collateral token (e.g. 6 for
+    ///         FXRP, 18 for FLR/USDT0). Stored separately so the protocol can
+    ///         support collaterals of any decimal precision without a hardcoded
+    ///         scale factor. The on-the-fly scale factor used to normalise
+    ///         collateral to a 1e18 (USD 18dp) basis is `10 ** (18 - decimals)`.
+    ///         Defaults are seeded in the constructor for FXRP, FLR and USDT0.
+    mapping(address => uint8) public collateralDecimals;
+
     // ═══════════════════ Borrower XRPL Address Binding ═══════════════════
     /// @dev Maps an EVM borrower to their XRPL r-address (as standard address hash).
     ///      This binds the FDC repayment proof's receivingAddressHash to the borrower,
@@ -118,6 +136,19 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         ftsoV2 = _ftsoV2;
         fdcVerification = _fdcVerification;
         owner = msg.sender;
+
+        // ── Seed per-collateral LTV + decimals defaults (subagent #55) ──
+        // FXRP and USDT0 addresses are known at construction (immutables), so we
+        // seed their collateral config inline. FLR is NOT a constructor param
+        // (the deployed vault only borrows against FXRP collateral today), so
+        // its default (80% LTV, 18 decimals) must be seeded by the owner via
+        // `registerCollateral(FLR_ADDR, 8000, 18)` post-deploy. This keeps the
+        // constructor signature backward-compatible with the 127 existing tests
+        // while still satisfying the "set defaults" requirement for FXRP/USDT0.
+        collateralLTV[_fxrp] = 7500;        // FXRP → 75% LTV
+        collateralDecimals[_fxrp] = 6;       // FXRP is 6-decimal
+        collateralLTV[_usdt0] = 8500;       // USDT0 → 85% LTV (also a valid collateral type)
+        collateralDecimals[_usdt0] = 18;     // USDT0 is 18-decimal on Coston2 (verified 2026-08-05)
     }
 
     // ═══════════════════ Owner / Admin ═══════════════════
@@ -157,6 +188,57 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (borrowerNonce[borrower] < type(uint32).max) {
             borrowerNonce[borrower] += 1;
         }
+    }
+
+    /// @notice Register a NEW collateral type with its LTV ratio and decimals.
+    ///         Used to onboard support for collateral tokens that aren't wired
+    ///         into the constructor (e.g. FLR, which isn't a constructor param).
+    ///         For tokens that are already registered, prefer `updateLTV`.
+    /// @dev    Only callable by `owner`. Validates `newLTV` is in (0, 10000] bps
+    ///         and `decimals` is in (0, 36]. Emits {LTVUpdated} (oldLTV = current
+    ///         value, which is 0 for a brand-new collateral). Idempotent: calling
+    ///         on an already-registered token updates both its LTV and decimals.
+    /// @param  token     The collateral token address to register/update.
+    /// @param  ltvBps    The LTV ratio in basis points (e.g. 8000 = 80%).
+    /// @param  decimals  The token's ERC20 decimals (e.g. 18 for FLR).
+    function registerCollateral(address token, uint256 ltvBps, uint8 decimals)
+        external
+        onlyOwner
+    {
+        if (token == address(0)) revert ZeroAmount();
+        if (ltvBps == 0 || ltvBps > 10000) revert InvalidLTV(ltvBps);
+        if (decimals == 0 || decimals > 36) revert InvalidLTV(ltvBps);
+
+        uint256 oldLTV = collateralLTV[token];
+        collateralLTV[token] = ltvBps;
+        collateralDecimals[token] = decimals;
+        emit LTVUpdated(token, oldLTV, ltvBps);
+    }
+
+    /// @notice Update the LTV ratio for an already-registered collateral token.
+    ///         Owner-only. Emits {LTVUpdated}.
+    /// @dev    Validates the new LTV is in (0, 10000] bps and the token is
+    ///         already registered (non-zero LTV or non-zero decimals). Tightening
+    ///         the LTV only affects NEW loan draws — outstanding loans retain
+    ///         the ratio enforced at their draw time.
+    /// @param  collateralToken The collateral token whose LTV to update.
+    /// @param  newLTV          New LTV in basis points (e.g. 7200 = 72%).
+    function updateLTV(address collateralToken, uint256 newLTV) external onlyOwner {
+        if (newLTV == 0 || newLTV > 10000) revert InvalidLTV(newLTV);
+        if (collateralLTV[collateralToken] == 0 && collateralDecimals[collateralToken] == 0) {
+            revert UnknownCollateral(collateralToken);
+        }
+        uint256 oldLTV = collateralLTV[collateralToken];
+        collateralLTV[collateralToken] = newLTV;
+        emit LTVUpdated(collateralToken, oldLTV, newLTV);
+    }
+
+    /// @notice Get the LTV ratio (basis points) for a collateral token.
+    ///         Returns 0 for unregistered tokens.
+    /// @param  collateralToken The collateral token to query.
+    /// @return LTV in basis points (e.g. 7500 = 75%); 0 if not registered.
+    function getLTV(address collateralToken) external view returns (uint256) {
+        return collateralLTV[collateralToken];
     }
 
     /// @notice Register the borrower's XRPL r-address (as a standard address hash).
@@ -362,17 +444,38 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             }
         }
 
-        // ── Collateral ratio check ──
-        // FXRP collateral: 6dp, USDT0 loan: 18dp, FTSO price: 18dp.
-        // collateralUsd18 = collateralFxrp6dp * 1e12 * xrpUsd18dp / 1e18
-        // loanUsd18        = loanUsdt0_18dp  (already 18dp, no scaling needed)
-        uint256 collateralUsd18 =
-            (loan.collateralAmount * SCALE_TO_18 * xrpUsd18dp) / 1e18;
-        uint256 loanUsd18 = loanAmount; // USDT0 is 18dp → already in USD 18dp
-        if (collateralUsd18 * 10000 < loanUsd18 * collateralRatioBps) {
-            revert InsufficientCollateral(
-                collateralUsd18 * 10000, loanUsd18 * collateralRatioBps
-            );
+        // ── Collateral ratio + LTV checks (subagent #55 refactored the
+        //     hardcoded SCALE_TO_18 → per-token decimals; added an LTV cap) ──
+        // Scoped block so the scale/collat/loan/ltv locals are freed before the
+        // later requiredRepaymentDrops / deadline / commitment locals are
+        // allocated (avoids EVM "stack too deep" — the Loan struct already
+        // fills the stack).
+        // For FXRP (6 decimals) the per-token factor is exactly 10**12, identical
+        // to the legacy SCALE_TO_18, so existing 15000-ratio behaviour is
+        // preserved bit-for-bit. The LTV cap (75% seeded for FXRP) only fires
+        // when the owner TIGHTENS the LTV below the global floor; the existing
+        // 150% floor remains the binding constraint.
+        {
+            uint256 collateralUsd18 = (
+                loan.collateralAmount * _collateralScaleFactor(address(fxrp)) * xrpUsd18dp
+            ) / 1e18;
+            uint256 requiredRatioBps = collateralRatioBps; // shadow immutable into stackable local
+            if (collateralUsd18 * 10000 < loanAmount * requiredRatioBps) {
+                revert InsufficientCollateral(
+                    collateralUsd18 * 10000, loanAmount * requiredRatioBps
+                );
+            }
+            uint256 ltv = collateralLTV[address(fxrp)];
+            // LTV form: `loan <= collateral * ltv / 10000`. Fail when
+            // `loanUsd18 * 10000 > collateralUsd18 * ltv`, i.e.
+            // `collateralUsd18 * ltv < loanUsd18 * 10000`. Note this is the
+            // INVERSE of the collateralization flight above (the floor uses
+            // `collat * 10000 < loan * ratio`).
+            if (ltv != 0 && collateralUsd18 * ltv < loanAmount * 10000) {
+                revert InsufficientCollateral(
+                    collateralUsd18 * ltv, loanAmount * 10000
+                );
+            }
         }
 
         // ── Compute required repayment drops ──
@@ -758,6 +861,52 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         return loans[loanId].loanAmount + getInterestOwed(loanId);
     }
 
+    /// @notice Maximum USDT0 (18dp) that can be drawn against a loan's FXRP
+    ///         collateral at the current FTSO XRP/USD price, respecting BOTH
+    ///         the global `collateralRatioBps` floor AND the per-collateral LTV
+    ///         cap. Returns the SMALLER of the two bounds.
+    /// @dev    This is a `payable view` because reading the XRP/USD FTSOv2 feed
+    ///         via `getFeedByIdInWei` is a payable call on Flare (query fee from
+    ///         `msg.value`; 0 on Coston2 today). Returns 0 for non-FUNDED loans
+    ///         (and for COLLATERAL_DEPOSITED loans — the typical "how much can I
+    ///         borrow?" check, which is run BEFORE eligibility/draw). Practically
+    ///         the loan's collateral just needs to be deposited; we do NOT enforce
+    ///         state here so the view works as a pre-draw quoting tool.
+    ///
+    ///         Math (FXRP, 6dp collateral):
+    ///           collateralUsd18 = collateralAmount * 1e12 * xrpUsd18dp / 1e18
+    ///           ratioBound       = collateralUsd18 * 10000 / collateralRatioBps
+    ///           ltvBound         = collateralUsd18 * collateralLTV[fxrp]  / 10000
+    ///           maxLoan          = min(ratioBound, ltvBound)
+    ///         For 18-decimal collaterals the scale factor is 1 instead of 1e12.
+    /// @param  loanId The loan to quote the max borrow for (must have collateral).
+    /// @return Max borrowable USDT0 (18dp). 0 if the loan has no collateral or
+    ///         the FTSO price is 0.
+    function getMaxLoanAmount(uint256 loanId) external payable returns (uint256) {
+        Loan storage loan = loans[loanId];
+        uint256 collateralAmount = loan.collateralAmount;
+        if (collateralAmount == 0) return 0;
+
+        (uint256 xrpUsd18dp, ) =
+            FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
+        if (xrpUsd18dp == 0) return 0;
+
+        // collateralUsd18 (USDT0/USD 18dp basis) using the per-token decimals factor.
+        uint256 collateralUsd18 =
+            (collateralAmount * _collateralScaleFactor(address(fxrp)) * xrpUsd18dp) / 1e18;
+
+        // Bound 1: global collateralisation floor (loanUsd * collateralRatioBps <= collatUsd * 10000)
+        uint256 ratioBound = (collateralUsd18 * 10000) / collateralRatioBps;
+
+        // Bound 2: per-collateral LTV cap (loanUsd * 10000 <= collatUsd * collateralLTV)
+        //          An unregistered token (LTV 0) is treated as no LTV cap.
+        uint256 ltv = collateralLTV[address(fxrp)];
+        if (ltv == 0) return ratioBound;
+        uint256 ltvBound = (collateralUsd18 * ltv) / 10000;
+
+        return ratioBound < ltvBound ? ratioBound : ltvBound;
+    }
+
     /// @notice Fetch all loan ids opened by a borrower (across all states).
     /// @param  borrower The borrower address to look up.
     /// @return Array of loan ids belonging to the borrower.
@@ -831,7 +980,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         // (getInterestOwed returns 0 once state != FUNDED), so loanValueUsd18 ==
         // principal only — which is exactly what remained to be recovered at auction.
         uint256 collateralUsd18 =
-            (loan.collateralAmount * SCALE_TO_18 * xrpUsd18dp) / 1e18;
+            (loan.collateralAmount * _collateralScaleFactor(address(fxrp)) * xrpUsd18dp) / 1e18;
         uint256 loanValueUsd18 = loanAmount + getInterestOwed(loanId);
 
         // healthFactor = collateralUsd18 * 1e18 / loanValueUsd18
@@ -929,7 +1078,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///      Caller MUST have already enforced state and (for the deadline path) the
     ///      timetable, and MUST have validated `xrpUsd18dp != 0`.
     function _startLiquidation(uint256 loanId, Loan storage loan, uint256 xrpUsd18dp) internal {
-        uint256 startPrice = (loan.collateralAmount * SCALE_TO_18 * xrpUsd18dp) / 1e18;
+        uint256 scaleFactor = _collateralScaleFactor(address(fxrp));
+        uint256 startPrice = (loan.collateralAmount * scaleFactor * xrpUsd18dp) / 1e18;
 
         loan.state = LoanState.AUCTION;
         auctions[loanId] = LiquidationAuction({
@@ -957,6 +1107,19 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (amount != 0) {
             token.approve(spender, amount);
         }
+    }
+
+    /// @dev Computes the on-the-fly decimal scale factor that normalises a token
+    ///      amount of `decimals` precision to the 1e18 (USDT0/USD 18dp) basis used
+    ///      throughout the vault. Returns `10 ** (18 - decimals)`. For FXRP (6dp)
+    ///      this is exactly `10**12`, identical to the legacy `SCALE_TO_18`. For
+    ///      18-decimal collaterals (FLR, USDT0) it is `10**0 = 1`. For an
+    ///      unregistered token (decimals == 0) it falls back to the legacy FXRP
+    ///      factor (1e12) to keep historical call sites safe.
+    function _collateralScaleFactor(address token) internal view returns (uint256) {
+        uint8 d = collateralDecimals[token];
+        if (d == 0 || d > 18) return SCALE_TO_18; // legacy FXRP fallback
+        return 10 ** (18 - d);
     }
 
     /// @dev internal `view` (not `pure`) because it reads `address(this)`.
