@@ -26,6 +26,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -94,6 +95,11 @@ type Handler struct {
 	authorityAddr      common.Address
 	collateralRatioBps *big.Int // e.g. 15000
 	xrpUsd18dp         *big.Int // XRP/USD in 18 decimals (e.g. 2.5e18)
+	// mu guards the three in-memory maps below. Without it, the net/http
+	// goroutine-per-request model produces concurrent-map-read-and-write
+	// panics on POST /action (writes lastResult; reads limits/revoked) racing
+	// GET /eligibility/:address (reads lastResult). See security-prism G1.
+	mu sync.RWMutex
 	// Simulated borrower limits; in production the TEE holds private data.
 	limits  map[string]*big.Int
 	revoked map[string]bool
@@ -116,11 +122,21 @@ func NewHandler() (*Handler, error) {
 	}
 	ratio := big.NewInt(15000)
 	if r := os.Getenv("COLLATERAL_RATIO_BPS"); r != "" {
-		ratio.SetString(r, 10)
+		v, ok := new(big.Int).SetString(r, 10)
+		if !ok || v.Sign() <= 0 {
+			log.Printf("level=error msg=\"invalid COLLATERAL_RATIO_BPS, keeping default 15000\" value=%q", r)
+		} else {
+			ratio = v
+		}
 	}
 	xrpPrice := new(big.Int).SetUint64(2500000000000000000) // default 2.50 USD
 	if p := os.Getenv("XRP_USD_PRICE_18DP"); p != "" {
-		xrpPrice.SetString(p, 10)
+		v, ok := new(big.Int).SetString(p, 10)
+		if !ok || v.Sign() <= 0 {
+			log.Printf("level=error msg=\"invalid XRP_USD_PRICE_18DP, keeping default 2.5e18\" value=%q", p)
+		} else {
+			xrpPrice = v
+		}
 	}
 	return &Handler{
 		signingKey:         key,
@@ -209,7 +225,7 @@ func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 	if borrower == (common.Address{}) {
 		return h.result(false, "0", "INVALID_BORROWER", nil)
 	}
-	if h.revoked[strings.ToLower(in.Borrower)] {
+	if h.isRevoked(in.Borrower) {
 		return h.result(false, "0", "BORROWER_REVOKED", nil)
 	}
 
@@ -248,7 +264,7 @@ func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 
 	// ── Approved limit: min(requested, borrower limit) ──
 	limit := requested
-	if lim, ok := h.limits[strings.ToLower(in.Borrower)]; ok && lim.Cmp(limit) < 0 {
+	if lim := h.borrowerLimit(in.Borrower); lim != nil && lim.Cmp(limit) < 0 {
 		limit = lim
 	}
 
@@ -289,6 +305,8 @@ func (h *Handler) evaluate(in EvaluationInput) (json.RawMessage, error) {
 // so the read-only /eligibility/:address endpoint can replay it without
 // re-running the (signed) evaluation.
 func (h *Handler) storeResult(borrower string, eligible bool, limit, reason string, att *Attestation) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.lastResult[strings.ToLower(borrower)] = EvaluationResult{
 		Eligible:    eligible,
 		Limit:       limit,
@@ -302,8 +320,32 @@ func (h *Handler) storeResult(borrower string, eligible bool, limit, reason stri
 // (zero, false) if the address has never been evaluated. Callers should
 // surface the "never evaluated" case distinctly from an explicit denial.
 func (h *Handler) GetEligibility(borrower string) (EvaluationResult, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	r, ok := h.lastResult[strings.ToLower(borrower)]
 	return r, ok
+}
+
+// isRevoked reports whether the borrower (lowercased address) is in the TEE's
+// revoked set. Read-guarded so it is safe to call from concurrent goroutines.
+func (h *Handler) isRevoked(borrower string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.revoked[strings.ToLower(borrower)]
+}
+
+// borrowerLimit returns the per-account credit ceiling held in the TEE, or
+// nil if no cap is set for this account (full requested amount applies).
+// Returns a copy of the stored big.Int so callers cannot mutate shared state.
+// Read-guarded for concurrent access.
+func (h *Handler) borrowerLimit(borrower string) *big.Int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	lim, ok := h.limits[strings.ToLower(borrower)]
+	if !ok {
+		return nil
+	}
+	return new(big.Int).Set(lim)
 }
 
 // FetchCreditScore is the exported getter that backs the /credit-score/:address
