@@ -30,7 +30,9 @@ contract XRPPayment is FDCBase {
         console.log("Transaction ID:", vm.toString(transactionId));
         console.log("Proof Owner:", proofOwner);
 
+        vm.startBroadcast(deployerPrivateKey);
         _requestXRPPaymentAttestation(transactionId, proofOwner, false);
+        vm.stopBroadcast();
 
         console.log("");
         console.log("=== Step 2: Wait for Voting Round ===");
