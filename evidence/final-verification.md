@@ -21,11 +21,11 @@ $ forge test --summary
 | CreditGateVaultLTVTest              | 11     | 0      | 0       |
 | CreditGateVaultTriggerTest          | 9      | 0      | 0       |
 ╰-------------------------------------+--------+--------+---------╯
-Ran 11 test suites in 43.09s: 141 tests passed, 0 failed, 0 skipped (138 total tests)
+Ran 11 test suites in 43.09s: 141 tests passed, 0 failed, 0 skipped (141 total tests)
 ```
 
-- Tests: **138/138 passed**
-- Suites: **11** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 5 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 69 + Views 15 + Auction 5 + LTV 11 + Trigger 9 = 138)
+- Tests: **141/141 passed**
+- Suites: **11** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 8 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 69 + Views 15 + Auction 5 + LTV 11 + Trigger 9 = 141)
 - Result: **PASS**
 
 ## Solidity Build

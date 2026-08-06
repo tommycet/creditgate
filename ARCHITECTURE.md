@@ -165,7 +165,7 @@ the loan walks. Cross-references at the end point to the verifying test suites.
 | Dutch auction | `test/CreditGateVault.auction.t.sol` | **5** | `startLiquidationAuction` (reverts if not FUNDED; succeeds on expired loan), `bidOnLiquidation`, `finalizeAuction` (with/without bids), price-decay math, surplus refund |
 
 These three suites added by subagent #57 grew the test surface from
-**10 suites / 118 tests → 11 suites / 138 tests**, all passing on Coston2.
+**10 suites / 118 tests → 11 suites / 141 tests**, all passing on Coston2.
 
 ## EIP-191 Eligibility Attestation Payload
 

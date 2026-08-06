@@ -119,7 +119,7 @@ Final card — the four-primitive claim, on screen:
 
 | Metric | Value |
 |--------|-------|
-| **Tests passing** | 138 across 11 suites, 0 failures |
+| **Tests passing** | 141 across 11 suites, 0 failures |
 | **Flare primitives used** | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
 | **Security fixes** | 5 (audit-verified: M1, M2, L1, L4, L5) |
 | **Go-TEE cross-language tests** | 2 (Go signature → Solidity `ecrecover`) |
