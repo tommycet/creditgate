@@ -177,6 +177,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     /// @notice Mark a borrower's eligibility as revoked. Bumps revocation version so any
     ///         outstanding eligibility attestation with an older version is rejected.
+    /// @dev    Owner-only. Also rotates the per-borrower eligibility nonce so any
+    ///         in-flight attestation fails the nonce check (M2 fix). Both the revocation
+    ///         version and the nonce are capped at their type maxima to prevent overflow.
     /// @param  borrower The borrower whose eligibility is being revoked.
     function revokeEligibility(address borrower) external onlyOwner {
         eligibilityRevoked[borrower] = true;
@@ -243,7 +246,11 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     /// @notice Register the borrower's XRPL r-address (as a standard address hash).
     ///         Required before drawing a loan — the FDC repayment proof's
-    ///         receivingAddressHash must match this binding.
+    ///         `receivingAddressHash` must match this binding.
+    /// @dev    Stores `keccak256(bytes(xrplAddress))` keyed by `msg.sender`. The hash
+    ///         can be freely re-registered pre-draw; from draw time onward the loan
+    ///         carries its own per-loan snapshot (L5) so post-draw re-binding cannot
+    ///         redirect repayment.
     /// @param xrplAddressHash keccak256(bytes(xrplAddress))
     function registerXRPLAddress(bytes32 xrplAddressHash) external whenNotPaused {
         require(xrplAddressHash != bytes32(0), "ZeroHash");
@@ -283,6 +290,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @notice Withdraw FXRP collateral. Only allowed while the loan is still in the
     ///         `COLLATERAL_DEPOSITED` state, i.e. before any eligibility has been
     ///         requested/granted. Returns the borrower to IDLE for this loan slot.
+    /// @dev    Zero-collateral release: pulls `loan.collateralAmount` (which is set at
+    ///         deposit time and unchanged thereafter) and transfers it back to the
+    ///         borrower via `safeTransfer`. Reverts with `InvalidLoanState` if the
+    ///         loan has already advanced past collateral deposit.
     /// @param  loanId  The loan slot whose collateral should be withdrawn.
     function withdrawCollateral(uint256 loanId) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
@@ -304,6 +315,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///         the loan from `COLLATERAL_DEPOSITED` to `ELIGIBILITY_PENDING` and snapshots
     ///         the per-borrower eligibility nonce. The borrower then submits the signed
     ///         attestation via `submitEligibility`.
+    /// @dev    The nonce snapshot at request time binds the eventual attestation to a
+    ///         specific nonce, so any revocation rotation that bumps the borrower's nonce
+    ///         invalidates an outstanding request.
     /// @param  loanId  The loan slot requesting eligibility.
     function requestEligibility(uint256 loanId) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
@@ -505,9 +519,14 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     /// @notice Submit an FDC-verified XRPL payment proof to close a funded loan.
     ///         Verifies the proof via FdcVerification, checks the payment status, the
-    ///         received amount ≥ required drops, and the memo matches `expectedCommitment`.
-    ///         On success, releases FXRP collateral to the borrower and transitions to
-    ///         `CLOSED`.
+    ///         received amount ≥ required drops (principal + accrued interest), and the
+    ///         memo matches `expectedCommitment`. On success, releases FXRP collateral
+    ///         to the borrower and transitions to `CLOSED`.
+    /// @dev    Anti-replay via the `proofConsumed` mapping keyed on `keccak256(proof)`.
+    ///         Interest is converted to XRP drops using the loan's stored
+    ///         `requiredRepaymentDrops / loanAmount` ratio (no live FTSO read at
+    ///         repayment). The receiving XRPL address is checked against the per-loan
+    ///         snapshot (L5) — not the live borrower mapping.
     /// @param  loanId The funded loan being repaid.
     /// @param  proof  The Flare FDC XRPPayment proof from the attestation provider.
     function submitRepaymentProof(uint256 loanId, IXRPPayment.Proof calldata proof)
@@ -822,6 +841,11 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     }
 
     // ═══════════════════ Views ═══════════════════
+    /// @notice Return the full `Loan` struct for `loanId`. Reverts-on-lookup is
+    ///         not enforced: an unused id returns a defaulted-to-idle (all-zero,
+    ///         state == IDLE) struct, which is safe to expose as a read.
+    /// @dev    Returns a memory copy of the storage `Loan`, so callers can read any
+    ///         field in one go without per-field getter getters.
     /// @param  loanId The loan id to look up.
     /// @return The Loan struct (memory copy) for the given id.
     function getLoan(uint256 loanId) external view returns (Loan memory) {
