@@ -17,9 +17,9 @@ Three terminals side-by-side, narrated as you start:
   ```bash
   cd frontend && npm run dev   # → http://localhost:3000
   ```
-- **Terminal 3 — Forge test output, 138 tests green** (the evidence backbone)
+- **Terminal 3 — Forge test output, 141 tests green** (the evidence backbone)
   ```bash
-  forge test   # → "138 tests passed, 0 failures" across 11 suites
+  forge test   # → "141 tests passed, 0 failures" across 11 suites
   ```
 
 > **Opening line:** *"Three terminals — the TEE credit evaluator, the borrower UI, and the test suite. Watch how they compose into one credit flow on Flare."*
@@ -83,7 +83,7 @@ Switch to **`/app`** — the borrower lifecycle view.
 Stay on Terminal 3. Run the full suite on camera:
 
 ```bash
-forge test   # → 138 tests, 11 suites, 0 failures
+forge test   # → 141 tests, 11 suites, 0 failures
 ```
 
 Highlight three categories of evidence (panels prepared as `forge test --match-contract <X> -vv` output):

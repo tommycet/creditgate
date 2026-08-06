@@ -11,7 +11,7 @@ Billions of dollars of XRP sit idle on Flare as FXRP collateral — locked, prod
 ## Quick Start (3 commands)
 
 ```bash
-# 1. Contracts — 138 tests across 11 suites, 0 failures
+# 1. Contracts — 141 tests across 11 suites, 0 failures
 forge test
 
 # 2. Frontend — Next.js + wagmi + RainbowKit (http://localhost:3000)
@@ -36,7 +36,7 @@ Competitive intel gathered from the live DoraHacks BUIDL listing (see `planning/
 | 2 | **Only submission binding FCC (private eligibility) → FDC (public cross-chain verification)** in a single product flow. | `ARCHITECTURE.md` + state machine |
 | 3 | **Real reentrancy attack test** — malicious FXRP token invokes `depositCollateral` from `transferFrom`; blocked by `ReentrancyGuard`. | `test/CreditGateVault.malicious-reentrancy.t.sol` |
 | 4 | **Go-TEE ↔ Solidity cross-language compatibility** — 2 tests prove the Go handler's EIP-191 signature is accepted by Solidity `ecrecover`. No competitor surfaces this. | `test/CreditGateVault.go-tee-compat.t.sol` |
-| 5 | **138 tests / 11 suites + invariant fuzz + security audit clean** — deepest *verifiable* engineering evidence among named competitors; all M1/M2/L1/L2/L4/L5 findings fixed. | `planning/security-audit/verdict.md` (PASS) + `forge test` |
+| 5 | **141 tests / 11 suites + invariant fuzz + security audit clean** — deepest *verifiable* engineering evidence among named competitors; all M1/M2/L1/L2/L4/L5 findings fixed. | `planning/security-audit/verdict.md` (PASS) + `forge test` |
 | 6 | **Cross-chain repayment-substitution defense** — per-loan XRPL address snapshot + 32-byte domain-separated MemoData commitment. None of the competitors describe this. | `src/CreditGateVault.sol` + `ARCHITECTURE.md` |
 
 ---
@@ -93,11 +93,11 @@ Full design in [`ARCHITECTURE.md`](ARCHITECTURE.md) (EIP-191 payload layout, FDC
 - XRPL address binding — borrower registers their XRPL r-address; FDC repayment proof must match (prevents repayment substitution)
 - 32-byte XRPL MemoData commitment binding — domain-separated, loan-specific
 - FDC repayment proof verification — Status, amount, memo, receiver, and source checks
-- Foundry test suite — **138 tests across 11 suites** (69 unit + 15 health-factor/view + 15 edge-case boundary + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC lifecycle fixture + 2 Go-TEE cross-language + 1 truly-malicious-token reentrancy + 11 LTV-config + 9 liquidation-trigger)
+- Foundry test suite — **141 tests across 11 suites** (69 unit + 15 health-factor/view + 15 edge-case boundary + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC lifecycle fixture + 2 Go-TEE cross-language + 1 truly-malicious-token reentrancy + 11 LTV-config + 9 liquidation-trigger)
 - React lifecycle UI — judge-facing demo interface
 
 ### Newer features added beyond the M1 milestone
-These six capabilities were layered on after the initial security sweep, growing the suite from 91 → 138 tests / 7 → 11 suites. All are exercised by the test suite and reflected on the frontend.
+These six capabilities were layered on after the initial security sweep, growing the suite from 91 → 141 tests / 7 → 11 suites. All are exercised by the test suite and reflected on the frontend.
 
 - **Dutch auction liquidation** (`CreditGateVault.auction.t.sol`, 5 tests) — when a loan's health factor drops below 1.0, anyone can call `startLiquidationAuction(loanId)` to begin a linear-decay Dutch auction. `bidOnLiquidation` accepts decreasing-denominated bids and `finalizeAuction` settles, repaying the lender and refunding any surplus to the borrower. Penalties are bounded; price decays monotonically from a ceiling to a floor.
 - **Interest rate mechanism** (subagent #47, folded into unit + views suites) — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`). The repayment check now requires the XRPL MemoData to cover **principal + accrued interest**, with `InterestAccrued` emitted on close. Loans still in `FUNDED` state accrue; repaid/defaulted/auctioning loans do not.

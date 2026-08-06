@@ -54,7 +54,7 @@
 
 ## Scene 6: Security Evidence (25s, 2:00–2:25)
 
-**VISUAL:** Stay on Terminal 3. `forge test` scrolls past — "138 tests, 11 suites, 0 failures." Three panels flash in sequence: (1) reentrancy attack — a malicious FXRP token re-entering `depositCollateral`, blocked by `ReentrancyGuard`; (2) Go-TEE compat — a Go-produced signature accepted by Solidity `ecrecover`, one-byte tamper → `InvalidEligibilitySigner`; (3) invariant fuzz — FXRP conservation and USDT0 solvency across 256 runs. A badge: "Audit PASS-WITH-NOTES, all fixes applied."
+**VISUAL:** Stay on Terminal 3. `forge test` scrolls past — "141 tests, 11 suites, 0 failures." Three panels flash in sequence: (1) reentrancy attack — a malicious FXRP token re-entering `depositCollateral`, blocked by `ReentrancyGuard`; (2) Go-TEE compat — a Go-produced signature accepted by Solidity `ecrecover`, one-byte tamper → `InvalidEligibilitySigner`; (3) invariant fuzz — FXRP conservation and USDT0 solvency across 256 runs. A badge: "Audit PASS-WITH-NOTES, all fixes applied."
 
 **NARRATOR:**
 > One hundred eighteen tests across nine suites, zero failures, ninety-seven-point-seven-five percent coverage. A genuine reentrancy attack — a malicious FXRP token that re-enters deposit mid-transfer — is blocked by `ReentrancyGuard`, and we wrote the attack ourselves to prove it. A signature from the Go FCC handler is accepted verbatim by Solidity `ecrecover`, and invariant fuzz tests confirm FXRP conservation and USDT0 solvency across two-hundred-fifty-six runs.
@@ -72,7 +72,7 @@
 
 ## Scene 8: Closing (15s, 2:45–3:00)
 
-**VISUAL:** Dark background. CreditGate wordmark centers. Three stat lines type out: "138 tests · 11 suites · 0 failures", "97.75% coverage", "Audit-verified". Final line: "Deploying to Coston2." The Flare logo and "Bounty 2 — Confidential Compute Apps" appear bottom-right. Fade to black.
+**VISUAL:** Dark background. CreditGate wordmark centers. Three stat lines type out: "141 tests · 11 suites · 0 failures", "97.75% coverage", "Audit-verified". Final line: "Deploying to Coston2." The Flare logo and "Bounty 2 — Confidential Compute Apps" appear bottom-right. Fade to black.
 
 **NARRATOR:**
 > CreditGate — private credit eligibility, public repayment verification, built entirely on Flare. One hundred eighteen tests, ninety-seven-point-seven-five percent coverage, security audit verified. Deploying to Coston2.

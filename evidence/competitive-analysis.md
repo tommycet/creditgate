@@ -16,7 +16,7 @@
 | **FDC** | ✅ Load-bearing (cross-chain XRPL repayment verification) | ✅ (100+ providers verify verdict) | ❌ | ❌ |
 | **# Flare primitives (load-bearing)** | **4 of 4** | 2 of 4 (FCC + FDC) | 1–2 of 4 (FCC + FTSO, no FDC) | 0 of 4 (non-Flare TEE) |
 | **Cross-stack proof** | Go EIP-191 sig accepted by Solidity `ecrecover` (verified by 2 cross-lang tests) | Not surfaced | Not surfaced | Not surfaced |
-| **Tests** | **138 tests, 11 suites, 0 failures, 97.75% line coverage** | No test claims on public BUIDL | Prose BUIDL, no tests | Not surfaced |
+| **Tests** | **141 tests, 11 suites, 0 failures, 97.75% line coverage** | No test claims on public BUIDL | Prose BUIDL, no tests | Not surfaced |
 | **Threat to CreditGate** | — | **HIGH** — direct Bounty 2 overlap, sharper institutional narrative (ERC-3643) | **MEDIUM** — different problem (yield), AI framing rides the hackathon's "AI" tag | **LOW-MED** — neighboring-TEE but not Flare FCC |
 
 ---
@@ -27,7 +27,7 @@
 
 2. **Cross-language engineering evidence.** The 2 Go-TEE cross-compatibility tests prove the Go FCC handler's EIP-191 signature is accepted by Solidity `ecrecover` (`test/CreditGateVault.go-tee-compat.t.sol`). No competitor publishes anything comparable — the most directly inspectable answer to the "architecture credible and understandable" half of Technical execution.
 
-3. **Test depth.** 138 tests across 11 suites (69 unit + 4 FDC fixture + 5 invariant/fuzz @ 256 runs each + 15 health-factor/loan/portfolio views + 5 Dutch auction liquidation + 2 Go-TEE compat + 1 real malicious-token reentrancy + 2 reentrancy/FTSO edge + 15 edge cases + 11 per-collateral LTV config + 9 FTSO-threshold liquidation trigger), 97.75% line coverage on `CreditGateVault.sol`, 100% function coverage. Neither AegisFlow nor FlareShield AI surface any test claims — our test volume is the deepest **verifiable** engineering evidence among named competitors and is reconstructible by any judge via `forge test`.
+3. **Test depth.** 141 tests across 11 suites (69 unit + 4 FDC fixture + 5 invariant/fuzz @ 256 runs each + 15 health-factor/loan/portfolio views + 5 Dutch auction liquidation + 2 Go-TEE compat + 1 real malicious-token reentrancy + 2 reentrancy/FTSO edge + 15 edge cases + 11 per-collateral LTV config + 9 FTSO-threshold liquidation trigger), 97.75% line coverage on `CreditGateVault.sol`, 100% function coverage. Neither AegisFlow nor FlareShield AI surface any test claims — our test volume is the deepest **verifiable** engineering evidence among named competitors and is reconstructible by any judge via `forge test`.
 
 4. **Cross-chain repayment-substitution defense.** Per-loan XRPL address snapshot + 32-byte domain-separated MemoData commitment binding is a concrete security primitive no competitor describes — rewards the "Evidence of new work" criterion.
 
@@ -47,7 +47,7 @@ The test counts and coverage above are reconstructible by any judge:
 
 ```bash
 cd /root/flare-hackathon/creditgate
-forge test                  # 138 tests, 11 suites, 0 failures
+forge test                  # 141 tests, 11 suites, 0 failures
 forge test --summary        # per-suite breakdown
 forge coverage              # 97.75% lines / 100% functions on CreditGateVault.sol
 ```

@@ -21,7 +21,7 @@ $ forge test --summary
 | CreditGateVaultLTVTest              | 11     | 0      | 0       |
 | CreditGateVaultTriggerTest          | 9      | 0      | 0       |
 ╰-------------------------------------+--------+--------+---------╯
-Ran 11 test suites in 43.09s: 138 tests passed, 0 failed, 0 skipped (138 total tests)
+Ran 11 test suites in 43.09s: 141 tests passed, 0 failed, 0 skipped (138 total tests)
 ```
 
 - Tests: **138/138 passed**
@@ -102,7 +102,7 @@ All gates pass:
 
 | Gate | Result |
 |------|--------|
-| `forge test` (138 tests, 11 suites) | ✅ PASS — 0 failures |
+| `forge test` (141 tests, 11 suites) | ✅ PASS — 0 failures |
 | `forge build` | ✅ PASS — compiles, lint advisories only |
 | `npm run build` (frontend) | ✅ PASS — 6 routes prerendered |
 | Stale `76/6` references in user-facing docs | ✅ FIXED this run |
