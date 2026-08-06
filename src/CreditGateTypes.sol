@@ -12,6 +12,13 @@ contract CreditGateTypes {
     uint256 public constant USDT0_DECIMALS_FACTOR = 1e18;
     uint256 public constant SCALE_TO_18 = 1e12; // 1e18 / 1e6
 
+    /// @notice Annual interest rate in basis points (500 = 5% APR). Simple interest,
+    ///         accruing linearly over the loan term.
+    uint256 public constant INTEREST_RATE_BPS = 500;
+
+    /// @notice Seconds per year used for the simple-interest proration math.
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
+
     /// XRP/USD FTSOv2 feed ID on Coston2
     bytes21 public constant XRP_USD_FEED_ID =
         0x015852502f55534400000000000000000000000000;
@@ -114,6 +121,10 @@ contract CreditGateTypes {
         uint256 collateralAmount,
         bytes32 expectedCommitment
     );
+
+    /// @notice Emitted when interest is computed for a loan (e.g. at repayment).
+    /// @dev    `interestAmount` is in the same units as `loanAmount` (USDT0, 18dp).
+    event InterestAccrued(uint256 indexed loanId, uint256 interestAmount);
 
     event RepaymentProofSubmitted(
         uint256 indexed loanId,
