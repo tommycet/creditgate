@@ -16,7 +16,7 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `test/CreditGateVault.go-tee-compat.t.sol` — 2 cross-language EIP-191 tests
 - `test/CreditGateVault.malicious-reentrancy.t.sol` — 1 truly-malicious-token reentrancy attack test
 - `test/CreditGateVault.reentrancy.t.sol` — 2 reentrancy / vault-solvency / future-FTSO-edge tests
-- `test/CreditGateVault.edge-cases.t.sol` — 10 edge-case tests (border collateral ratios, double-request rejection, expired-attestation handling, etc.)
+- `test/CreditGateVault.edge-cases.t.sol` — 15 edge-case tests (border collateral ratios, double-request rejection, expired-attestation handling, security boundaries, etc.)
 - `script/DeployCreditGate.s.sol` — Deployment script
 - `script/fdcExample/` — FDC request/verify scripts
 - `fcc/credit-extension/extension/` — Go FCC handler (credit evaluation + signing, /health endpoint, structured logging)
@@ -26,8 +26,8 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `ARCHITECTURE.md` — EIP-191 payload, FDC flow, Flare primitive addresses
 - `DEMO.md` — 90-second demo script
 
-## Current State (86 tests, 7 suites, 0 failures)
-- 62 unit + 4 FDC fixture + 5 invariant/fuzz + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 10 edge-case
+## Current State (91 tests, 7 suites, 0 failures)
+- 62 unit + 4 FDC fixture + 5 invariant/fuzz + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 15 edge-case (incl. 5 new security-boundary tests added by subagent #37)
 - Frontend builds (6 routes prerendered); landing page stats badges, FCC attestation submission panel, liquidate button, full-state color badges, error banner, token balances
 - FCC Go handler ships `/health` endpoint + structured logging + EIP-191 signing accepted by Solidity `ecrecover`
 - Security audit: PASS-WITH-NOTES (all fixes applied: M1/M2/L1/L2/L4/L5)
@@ -54,6 +54,6 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - Chain ID: 114, RPC: https://coston2-api.flare.network/ext/C/rpc
 
 ## Build Commands
-- `forge test` — run all 86 tests across 7 suites
+- `forge test` — run all 91 tests across 7 suites
 - `cd frontend && npm run build` — build frontend
 - `cd fcc/credit-extension/extension && go run .` — start FCC handler (:8080, /health + /action)

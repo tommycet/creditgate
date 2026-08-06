@@ -58,15 +58,17 @@ breakdowns. The 9.3 KB file is checked in alongside this report.
 
 Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 97.99s (351.14s CPU time)
 
-Ran 7 test suites in 98.00s (98.33s CPU time): 86 tests passed, 0 failed, 0 skipped (86 total tests)
+Ran 7 test suites in 98.00s (98.33s CPU time): 91 tests passed, 0 failed, 0 skipped (91 total tests)
 Wrote LCOV report.
 ```
 
-Note: the 7-suite / 86-test count above is from running ALL test files including the
-untracked `test/CreditGateVault.edge-cases.t.sol` (10 extra edge-case tests, +1 suite).
+Note: the 7-suite / 91-test count above is from running ALL test files including
+`test/CreditGateVault.edge-cases.t.sol` (15 edge-case boundary + security tests, +1 suite).
 The committed test surface — the one this evidence file documents alongside
-`test-summary.md` — is **6 suites / 76 tests** (the edge-cases file is a staging
-file not part of the ranked submission sweep, see `test-summary.md`).
+`test-summary.md` — is **7 suites / 91 tests** (the edge-cases file became a committed
+part of the sweep after subagent #37 added 5 security-boundary tests, bringing the
+edge-case suite from 10 → 15; the prior 6-suite / 76-test framing in older copies of
+this report predates the edge-cases file being promoted out of staging).
 
 ## Reproduce
 

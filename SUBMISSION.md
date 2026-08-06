@@ -62,14 +62,14 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 
 Every claim is backed by a file a judge can open and run.
 
-- **86 tests across 7 suites, 0 failures** — `forge test` reproduces on camera
+- **91 tests across 7 suites, 0 failures** — `forge test` reproduces on camera
 - **97.75% line coverage** of `CreditGateVault.sol`
 - **5 security fixes audit-verified** — all M1/M2/L1/L2/L4/L5 findings remediated; `planning/security-audit/verdict.md` = PASS
 - **Go-TEE ↔ Solidity cross-language compatibility** — `test/CreditGateVault.go-tee-compat.t.sol` (2 tests): the Go handler's real EIP-191 signature is accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`
 - **Real reentrancy attack test** — `test/CreditGateVault.malicious-reentrancy.t.sol`: a malicious FXRP token invokes `depositCollateral` from inside `transferFrom`; **blocked by `ReentrancyGuard`**. We didn't just add the guard — we wrote an attack that proves it.
 - **Invariant / fuzz tests** — `test/CreditGateVault.invariant.t.sol` (5 tests, 256 runs each): FXRP conservation (collateral never leaks), USDT0 solvency (vault never disburses more than it holds), state ordering, across fuzzed inputs
 - **FDC lifecycle fixture test** — `test/CreditGateVault.fdc-fixture.t.sol` (4 tests): realistic XRPL payment proof verified through the production `FdcVerification` ABI
-- **Edge-case tests** — `test/CreditGateVault.edge-cases.t.sol` (10 tests): border collateral ratios, double-request rejection, expired-attestation handling
+- **Edge-case tests** — `test/CreditGateVault.edge-cases.t.sol` (15 tests): border collateral ratios, double-request rejection, expired-attestation handling, security boundaries
 - **Evidence artifacts** — `evidence/tee-attestation.json` (real Go FCC attestation produced by `POST /action`)
 - **6 planning review verdicts** — fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit — each produced by a read-only audit subagent and then acted on
 
@@ -88,7 +88,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 86 across 7 suites, 0 failures |
+| Tests passing | 91 across 7 suites, 0 failures |
 | Line coverage | 97.75% |
 | Flare primitives used | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
@@ -96,13 +96,13 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 | Reentrancy attack tests | 1 (malicious FXRP token blocked) |
 | Invariant/fuzz tests | 5 (256 runs each — FXRP conservation + USDT0 solvency) |
 | FDC lifecycle tests | 4 (realistic XRPL proof verified) |
-| Edge-case tests | 10 (border ratios, double-request, expired attestation) |
+| Edge-case tests | 15 (border ratios, double-request, expired attestation, security boundaries) |
 | Bounty | Confidential Compute Apps (Bounty 2) |
 | Network | Coston2 (chain ID 114) |
 
 ## Team
 
-**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (86 tests / 7 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
+**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (91 tests / 7 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
 
 ## Future Roadmap
 
@@ -120,7 +120,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 **Quick start:**
 ```bash
-forge test                                       # 86 tests, 7 suites, 0 failures
+forge test                                       # 91 tests, 7 suites, 0 failures
 cd frontend && npm run dev                         # http://localhost:3000
 cd fcc/credit-extension/extension && go run .      # :8080 — POST /action → EIP-191 attestation
 ```

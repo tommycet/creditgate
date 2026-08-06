@@ -9,7 +9,7 @@ $ forge test --summary
 ╭-------------------------------------+--------+--------+---------╮
 | Test Suite                          | Passed | Failed | Skipped |
 +=================================================================+
-| CreditGateVaultEdgeCaseTest         | 10     | 0      | 0       |
+| CreditGateVaultEdgeCaseTest         | 15     | 0      | 0       |
 | CreditGateVaultFDCFixtureTest       | 4      | 0      | 0       |
 | CreditGateVaultGoTeeCompatTest      | 2      | 0      | 0       |
 | CreditGateVaultInvariantTest        | 5      | 0      | 0       |
@@ -17,11 +17,11 @@ $ forge test --summary
 | CreditGateVaultReentrancyAttackTest | 2      | 0      | 0       |
 | CreditGateVaultTest                 | 62     | 0      | 0       |
 ╰-------------------------------------+--------+--------+---------╯
-Ran 7 test suites in 43.09s: 86 tests passed, 0 failed, 0 skipped (86 total tests)
+Ran 7 test suites in 43.09s: 91 tests passed, 0 failed, 0 skipped (91 total tests)
 ```
 
-- Tests: **86/86 passed**
-- Suites: **7** (EdgeCase 10 + FDC 4 + GoTee 2 + Invariant 5 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 62 = 86)
+- Tests: **91/91 passed**
+- Suites: **7** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 5 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 62 = 91)
 - Result: **PASS**
 
 ## Solidity Build
@@ -97,7 +97,7 @@ All gates pass:
 
 | Gate | Result |
 |------|--------|
-| `forge test` (86 tests, 7 suites) | ✅ PASS — 0 failures |
+| `forge test` (91 tests, 7 suites) | ✅ PASS — 0 failures |
 | `forge build` | ✅ PASS — compiles, lint advisories only |
 | `npm run build` (frontend) | ✅ PASS — 6 routes prerendered |
 | Stale `76/6` references in user-facing docs | ✅ FIXED this run |
