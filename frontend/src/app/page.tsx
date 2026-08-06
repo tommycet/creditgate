@@ -50,6 +50,12 @@ export default function HomePage() {
             >
               Transparency
             </Link>
+            <Link
+              href="/docs"
+              className="px-8 py-3 border border-gray-600 hover:border-gray-400 rounded-lg font-semibold transition-colors"
+            >
+              Docs
+            </Link>
           </div>
 
           <ConnectButton />
