@@ -23,12 +23,12 @@ build cache (see `coverage-report.txt` for the cache-quirk note).
 | 9 | `CreditGateVaultAuctionTest` | `test/CreditGateVault.auction.t.sol` | **5** | Dutch auction liquidation lifecycle: `startLiquidationAuction` (gated on health factor < 1.0), `bidOnLiquidation`, `finalizeAuction`, `getAuctionPrice` linear-decay math, surplus-to-borrower refund, bidder payment path. |
 | 10 | `CreditGateVaultTriggerTest` | `test/CreditGateVault.trigger.t.sol` | **9** | Automated FTSO-threshold liquidation trigger: `checkAndTriggerLiquidation(loanId)` (no-op when healthy / price zero / not funded / exactly at threshold; fires `startLiquidationAuction` when undercollateralized) and `batchCheckLiquidation(loanIds)` (empty-array no-op, only-unhealthy triggered, all-healthy returns empty). Includes `triggeredAuctionIsFullyFunctional` proving the auto-started auction runs through bid + finalize. |
 | 11 | `CreditGateVaultLTVTest` | `test/CreditGateVault.ltv.t.sol` | **11** | Per-collateral LTV ratio configuration: `registerCollateral` (owner-only access control, rejects zero address & invalid LTV band, emits `CollateralRegistered`), `updateLTV` (owner-only, rejects unknown collateral, emits `LTVUpdated`), `getLTV` default after construction, `getMaxLoanAmount` bounded by LTV at default vs. tightened cap, and `drawLoan` respecting a tightened LTV. Plus `collateralDecimals` defaults after construction. |
-| | **Total** | | **138** | |
+| | **Total** | | **141** | |
 
-> The breakdown adds to 138: 69 + 4 + 5 + 2 + 1 + 2 + 15 + 15 + 5 + 9 + 11. The `69` in suite 1 is the larger
+> The breakdown adds to 141: 69 + 4 + 8 + 2 + 1 + 2 + 15 + 15 + 5 + 9 + 11. The `69` in suite 1 is the larger
 > headline number sometimes described in the README as "unit" — the README buckets the
 > reentrancy/solvency/auction/views tests separately; the underlying per-file count is what `forge test
-> --summary` reports. Both framings agree on the **138-test total**.
+> --summary` reports. Both framings agree on the **141-test total**.
 
 ---
 
@@ -36,7 +36,7 @@ build cache (see `coverage-report.txt` for the cache-quirk note).
 
 1. **Unit (69)** — All happy paths + every `revert` branch in `CreditGateVault.sol`, including interest-accrual math.
 2. **FDC fixture (4)** — A Coston2-shaped XRPL payment proof closes a loan and frees collateral.
-3. **Invariant/fuzz (5)** — Money is conserved; the vault can never be made insolvent.
+3. **Invariant/fuzz (8)** — Money is conserved (FXRP conservation + USDT0 solvency + no overdraft + no ghost collateral); the vault can never be made insolvent; state-machine ordering, interest ceiling, LTV-limit, and terminal-loan finality enforced across 256-runs fuzz inputs.
 4. **Go-TEE compat (2)** — The off-chain Go FCC handler and the on-chain Solidity verifier agree on the EIP-191 payload.
 5. **Real reentrancy (1)** — An actual malicious-token callback is refused by `ReentrancyGuard`.
 6. **Reentrancy + FTSO edge (2)** — Adjacent defense-in-depth cases around the drawLoan path.
@@ -87,7 +87,7 @@ forge test --match-test test_recoverDefaultedCollateral_happyPath
 If `forge test` ever surfaces a single "collateral" test failure that prints
 `Error != expected error: InsufficientCollateral(2.5e24 …) != InsufficientCollateral(2.5e25 …)`,
 that is a **stale Foundry build cache**, not a real failure. Run `forge clean && forge cache
-clean` once and re-run `forge test` — it will report **138 passed; 0 failed**. The root cause is
+clean` once and re-run `forge test` — it will report **141 passed; 0 failed**. The root cause is
 Foundry's incremental solc cache serving a pre-decimal-fix bytecode artifact; it is a known
 Foundry quirk and is harmless. (Evidence of this exact resolution was produced by this
 subagent on 2026-08-05: `forge clean` → `forge test` → `141 tests passed, 0 failed`.)

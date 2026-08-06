@@ -12,7 +12,7 @@ $ forge test --summary
 | CreditGateVaultEdgeCaseTest         | 15     | 0      | 0       |
 | CreditGateVaultFDCFixtureTest       | 4      | 0      | 0       |
 | CreditGateVaultGoTeeCompatTest      | 2      | 0      | 0       |
-| CreditGateVaultInvariantTest        | 5      | 0      | 0       |
+| CreditGateVaultInvariantTest        | 8      | 0      | 0       |
 | CreditGateVaultRealReentrancyTest   | 1      | 0      | 0       |
 | CreditGateVaultReentrancyAttackTest | 2      | 0      | 0       |
 | CreditGateVaultTest                 | 69     | 0      | 0       |

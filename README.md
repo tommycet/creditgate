@@ -1,6 +1,6 @@
 # CreditGate
 
-> 🏆 **Bounty 2 — Confidential Compute Apps** · Flare Summer Signal (DoraHacks, Aug 14 2026) · $6,000 prize pool
+> 🏆 **Bounty 2 — Confidential Compute Apps** (primary) · **Bounty 1 — Interoperable Asset Products** (secondary) · Flare Summer Signal (DoraHacks, Aug 14 2026) · $6,000 prize pool each
 
 **Private FXRP credit eligibility layer for Flare — deposit FXRP, get a confidential credit attestation via FCC, borrow USDT0, repay on XRPL verified by FDC.**
 
@@ -119,7 +119,7 @@ Every claim is backed by a file a judge can open and run. Six planning review ve
 |--------|-------|
 | Tests passing | 141 across 11 suites, 0 failures |
 | Line coverage | 97.75% of `CreditGateVault.sol` |
-| Invariant/fuzz tests | 8 (FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality) |
+| Invariant/fuzz tests | 8 (FXRP conservation, USDT0 solvency, no overdraft, state ordering, no ghost collateral, interest ceiling, LTV limit, terminal-loan finality) |
 | Go-TEE cross-language tests | 2 (Go signature → Solidity `ecrecover`) |
 | Reentrancy attack tests | 1 (malicious FXRP token blocked) |
 | FDC lifecycle tests | 4 (realistic XRPL proof verified) |
@@ -221,7 +221,7 @@ go run .   # listens on :8080
 
 ## Repository
 
-**GitHub:** https://github.com/metaverseguru/creditgate *(made public for the Flare Summer Signal submission window; if private at judging time, contact via DoraHacks)*
+**GitHub:** https://github.com/tommycet/creditgate *(made public for the Flare Summer Signal submission window; if private at judging time, contact via DoraHacks)*
 
 ## License
 

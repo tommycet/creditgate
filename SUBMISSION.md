@@ -71,7 +71,7 @@ Every claim is backed by a file a judge can open and run.
 - **5 security fixes audit-verified** — all M1/M2/L1/L2/L4/L5 findings remediated; `planning/security-audit/verdict.md` = PASS
 - **Go-TEE ↔ Solidity cross-language compatibility** — `test/CreditGateVault.go-tee-compat.t.sol` (2 tests): the Go handler's real EIP-191 signature is accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`
 - **Real reentrancy attack test** — `test/CreditGateVault.malicious-reentrancy.t.sol`: a malicious FXRP token invokes `depositCollateral` from inside `transferFrom`; **blocked by `ReentrancyGuard`**. We didn't just add the guard — we wrote an attack that proves it.
-- **Invariant / fuzz tests** — `test/CreditGateVault.invariant.t.sol` (5 tests, 256 runs each): FXRP conservation (collateral never leaks), USDT0 solvency (vault never disburses more than it holds), state ordering, across fuzzed inputs
+- **Invariant / fuzz tests** — `test/CreditGateVault.invariant.t.sol` (8 tests, 256 runs each): FXRP conservation (collateral never leaks), USDT0 solvency (vault never disburses more than it holds), no overdraft, state-machine ordering, no ghost collateral, interest never exceeds collateral, LTV limit respected, terminal-loan finality — across fuzzed inputs
 - **FDC lifecycle fixture test** — `test/CreditGateVault.fdc-fixture.t.sol` (4 tests): realistic XRPL payment proof verified through the production `FdcVerification` ABI
 - **Edge-case tests** — `test/CreditGateVault.edge-cases.t.sol` (15 tests): border collateral ratios, double-request rejection, expired-attestation handling, security boundaries
 - **Evidence artifacts** — `evidence/tee-attestation.json` (real Go FCC attestation produced by `POST /action`)
@@ -98,7 +98,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
 | Go-TEE cross-language tests | 2 (Go signature → Solidity `ecrecover`) |
 | Reentrancy attack tests | 1 (malicious FXRP token blocked) |
-| Invariant/fuzz tests | 8 (256 runs each — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality) |
+| Invariant/fuzz tests | 8 (256 runs each — FXRP conservation, USDT0 solvency, no overdraft, state ordering, no ghost collateral, interest ceiling, LTV limit, terminal-loan finality) |
 | FDC lifecycle tests | 4 (realistic XRPL proof verified) |
 | Edge-case tests | 15 (border ratios, double-request, expired attestation, security boundaries) |
 | Bounty | Confidential Compute Apps (Bounty 2) + Interoperable Asset Products (Bounty 1) |

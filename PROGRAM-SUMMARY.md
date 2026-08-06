@@ -44,7 +44,7 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - USDT0 18-decimal correction applied across all test suites (was 6-decimal assumption; USDT0 on Coston2 is 18 decimals)
 - Coston2 primitive addresses verified live 2026-08-05; `SafeERC20` import + env-var handling fixed in deploy script
 - 6 planning verdicts: fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit
-- Judge sim v4 verdict: **9.0/10** (up from 7.4 baseline)
+- Judge sim v6 verdict (latest, 2026-08-06): **9.5/10** weighted across official criteria (Product usefulness 9.5 · Flare integration 9.7 · Technical execution 9.5 · Evidence of new work 9.4 · Clarity 9.3); previous verdicts v4=9.0, v5=9.4, all from a 7.4 baseline
 - Deploy address: LIVE on Coston2 — `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` (deploy tx `0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb`, 2026-08-06). Vault seeded with 5 FXRP collateral (approve tx `0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8`, deposit tx `0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149`).
 
 ## Known Gaps (from judge sim 7.4/10 + competitive positioning)

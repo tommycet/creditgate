@@ -74,6 +74,14 @@ Switch to **`/app`** — the borrower lifecycle view.
    - **State: `CLOSED`.** Collateral released.
 4. **Evidence tag:** `FDC FIXTURE` (pre-captured proof verified locally; live `FdcVerification` at `0x906507E0B64bcD494Db73bd0459d1C667e14B933` uses the exact same `verifyXRPPayment` code path).
 
+   **Live on-chain FDC + XRPL artifacts (open these alongside the fixture test):**
+   | Artifact | Hash | Network |
+   |----------|------|---------|
+   | Real XRPL testnet payment | [`0xb9f346a3f25581fbb561842bf5d3c5c91b9909cf00d13dec7e7939b5c6347420`](https://livenet.xrpl.org/transactions/0xb9f346a3f25581fbb561842bf5d3c5c91b9909cf00d13dec7e7939b5c6347420) | XRPL Testnet (`tesSUCCESS`, ledger 19689886, 1,000,000 drops, memo `CREDITGATE-LOAN-REPAYMENT-FDC-VERIFY-2026-08-06`) |
+   | FDC attestation submit tx | [`0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42`](https://coston2-explorer.flare.network/tx/0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42) | Coston2 (status 1, FDC round 1417946 finalized on-chain — see `evidence/fdc-real-verify.md`) |
+
+   Full proof details and the retrieve-stage caveat are in [`evidence/fdc-real-verify.md`](evidence/fdc-real-verify.md).
+
 > Why fixture, not live? FDC voting-round finalization is ~180s on Coston2 — too long for a 3-minute demo. We pre-capture a real XRPL payment's FDC proof and verify it through the production verifier ABI. The verifier address is the live one; only the proof source is a fixture.
 
 ---
@@ -88,14 +96,14 @@ forge test   # → 141 tests, 11 suites, 0 failures
 
 Highlight three categories of evidence (panels prepared as `forge test --match-contract <X> -vv` output):
 
-- **Reentrancy attack tests** (`CreditGateVault.malicious-reentrancy.t.sol`, 3 tests):
+- **Reentrancy attack tests** (`CreditGateVault.malicious-reentrancy.t.sol`, 1 test):
   a malicious FXRP token that calls `depositCollateral` from inside `transferFrom` — **blocked by `ReentrancyGuard`**. "We didn't just add the guard; we wrote an attack that proves it."
 - **Go-TEE cross-language compatibility** (`CreditGateVault.go-tee-compat.t.sol`, 2 tests):
   Go handler produces a real EIP-191 signature → Solidity `ecrecover` accepts it → `ELIGIBLE`. Tamper one byte of the limit → `InvalidEligibilitySigner`. "The TEE and the vault agree on bytes."
-- **Invariant tests** (`CreditGateVault.invariant.t.sol`, 5 tests):
-  **FXRP conservation** (vault collateral never leaks) + **USDT0 solvency** (vault never disburses more than it holds) + state ordering, across fuzzed inputs.
+- **Invariant tests** (`CreditGateVault.invariant.t.sol`, 8 tests):
+  **FXRP conservation** (vault collateral never leaks) + **USDT0 solvency** (vault never disburses more than it holds) + no overdraft + state-machine ordering + no ghost collateral + interest ceiling + LTV limit + terminal-loan finality, across fuzzed inputs (256 runs each).
 
-> **Security audit: PASS-WITH-NOTES, all fixes applied** (M1 signature s/v bounds + nonzero recovered; M2 nonce rotation on revoke; L1 expiry re-check in `drawLoan`; L4 default recovery; L5 source-address snapshot at draw time).
+> **Security audit: PASS-WITH-NOTES, all fixes applied** (M1 signature s/v bounds + nonzero recovered; M2 nonce rotation on revoke; L1 expiry re-check in `drawLoan`; L2 FTSO future-timestamp underflow guard; L4 default recovery; L5 source-address snapshot at draw time).
 
 ---
 
@@ -121,11 +129,11 @@ Final card — the four-primitive claim, on screen:
 |--------|-------|
 | **Tests passing** | 141 across 11 suites, 0 failures |
 | **Flare primitives used** | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
-| **Security fixes** | 5 (audit-verified: M1, M2, L1, L4, L5) |
+| **Security fixes** | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
 | **Go-TEE cross-language tests** | 2 (Go signature → Solidity `ecrecover`) |
-| **Reentrancy attack tests** | 3 (malicious FXRP token blocked) |
-| **Invariant/fuzz tests** | 5 (FXRP conservation + USDT0 solvency) |
-| **Bounty** | Confidential Compute Apps (Bounty 2) |
+| **Reentrancy attack tests** | 1 (malicious FXRP token blocked) |
+| **Invariant/fuzz tests** | 8 (FXRP conservation + USDT0 solvency + no overdraft + state ordering + no ghost collateral + interest ceiling + LTV limit + terminal-loan finality, 256 runs each) |
+| **Bounty** | Confidential Compute Apps (Bounty 2, primary) + Interoperable Asset Products (Bounty 1, secondary) |
 | **Network** | Coston2 (chain ID 114) |
 
 ---
