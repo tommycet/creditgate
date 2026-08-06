@@ -142,8 +142,8 @@ export default function TransparencyPage() {
           {/* Test Suite Badge */}
           <div className="bg-gray-900 rounded-lg p-6 border border-gray-700 text-center">
             <h2 className="text-xl font-semibold mb-2">Test Suite</h2>
-            <div className="text-4xl font-bold text-orange-400">118/118</div>
-            <div className="text-sm text-gray-400 mt-1">tests passing across 9 suites</div>
+            <div className="text-4xl font-bold text-orange-400">138/138</div>
+            <div className="text-sm text-gray-400 mt-1">tests passing across 11 suites</div>
             <div className="text-xs text-gray-500 mt-1">unit + FDC fixture + invariant/fuzz + Go-TEE + reentrancy + solvency + gateway</div>
           </div>
 

@@ -42,7 +42,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
     uint256 constant DEPOSIT_100_FXRP = 100e6;
     uint256 constant DEPOSIT_50_FXRP = 50e6;
 
-    // Helper: USDT0 amounts (6 decimals)
+    // Helper: USDT0 amounts (18 decimals)
     uint256 constant LOAN_100_USDT = 100e18; // USDT0 is 18 decimals on Coston2
     uint256 constant LOAN_150_USDT = 150e18;
 

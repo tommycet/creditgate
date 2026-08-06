@@ -58,18 +58,18 @@ breakdowns. The 9.3 KB file is checked in alongside this report.
 
 Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 97.99s (351.14s CPU time)
 
-Ran 9 test suites in 98.00s (98.33s CPU time): 118 tests passed, 0 failed, 0 skipped (118 total tests)
+Ran 11 test suites in 98.00s (98.33s CPU time): 138 tests passed, 0 failed, 0 skipped (138 total tests)
 Wrote LCOV report.
 ```
 
-Note: the 9-suite / 118-test count above is from running ALL test files including
+Note: the 9-suite / 138-test count above is from running ALL test files including
 `test/CreditGateVault.edge-cases.t.sol` (15 edge-case boundary + security tests, +1 suite)
 and the two newer suites added by subagents #47/#48: `test/CreditGateVault.views.t.sol`
 (15 health-factor/loan/portfolio view tests, +1 suite) and `test/CreditGateVault.auction.t.sol`
 (5 Dutch auction liquidation tests, +1 suite).
 The committed test surface — the one this evidence file documents alongside
-`test-summary.md` — is **9 suites / 118 tests** (76 → 86 after the FDC/edge suites landed,
-86 → 91 after subagent #37's 5 security-boundary edge tests, 91 → 118 after subagents #47/#48
+`test-summary.md` — is **11 suites / 138 tests** (76 → 86 after the FDC/edge suites landed,
+86 → 91 after subagent #37's 5 security-boundary edge tests, 91 → 138 after subagents #47/#48
 added the views + auction suites).
 
 ## Reproduce

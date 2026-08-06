@@ -70,7 +70,7 @@ contract CreditGateInstructionSender {
     /// @notice Request private credit evaluation for a borrower
     /// @param borrower EVM address being evaluated
     /// @param collateralAmount FXRP deposited (6 decimals)
-    /// @param requestedLoan USDT0 requested (6 decimals)
+    /// @param requestedLoan USDT0 requested (18 decimals)
     /// @param expiry Attestation expiry (UNIX)
     /// @param nonce Borrower's current eligibility nonce
     /// @dev In the full FCC flow this calls TeeExtensionRegistry.sendInstructions()

@@ -20,7 +20,7 @@ export default function HomePage() {
           {/* Stats badges */}
           <div className="flex justify-center gap-6 mb-12 flex-wrap">
             <div className="text-center">
-              <div className="text-3xl font-bold text-orange-400">118/118</div>
+              <div className="text-3xl font-bold text-orange-400">138/138</div>
               <div className="text-xs text-gray-500">tests passing</div>
             </div>
             <div className="text-center">

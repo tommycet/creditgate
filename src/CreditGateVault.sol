@@ -28,7 +28,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     // ═══════════════════ Immutables / Config ═══════════════════
 
     IERC20 public immutable fxrp; // 6-decimal FXRP
-    IERC20 public immutable usdt0; // 6-decimal USDT0
+    IERC20 public immutable usdt0; // 18-decimal USDT0
     address public immutable teeAuthority; // registered TEE signer
     uint256 public immutable collateralRatioBps; // e.g. 15000 = 150%
     uint64 public immutable ftsoStalenessLimit; // max feed age in seconds
@@ -103,7 +103,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @dev    Sets the deployer as `owner`. All address parameters must be non-zero and
     ///         `collateralRatioBps` must be > 0.
     /// @param  _fxrp                FXRP collateral token (6 decimals).
-    /// @param  _usdt0               USDT0 loan token (6 decimals).
+    /// @param  _usdt0               USDT0 loan token (18 decimals).
     /// @param  _teeAuthority        Authorized TEE signer for eligibility attestations.
     /// @param  _collateralRatioBps  Required collateral ratio in basis points (e.g. 15000 = 150%).
     /// @param  _ftsoStalenessLimit  Maximum acceptable FTSO feed age in seconds.
@@ -399,7 +399,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @dev   `msg.value` is forwarded to the (payable) `getFeedByIdInWei` call to cover
     ///         any FTSO query fee on Flare. On Coston2 the fee is currently zero.
     /// @param  loanId     The eligible loan slot to draw against.
-    /// @param  loanAmount Amount of USDT0 (6 decimals) to borrow.
+    /// @param  loanAmount Amount of USDT0 (18 decimals) to borrow.
     function drawLoan(uint256 loanId, uint256 loanAmount)
         external
         payable

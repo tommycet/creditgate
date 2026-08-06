@@ -50,6 +50,123 @@
        │                         Collateral released → CLOSED
 ```
 
+## Liquidation Flow & New Risk Features ( auction / LTV / auto-trigger )
+
+The system overview above traces the **happy path** (deposit → eligibility → draw → repay → close).
+This diagram captures the **risk path**: what happens when a loan becomes undercollateralized,
+how the new automated trigger and per-collateral LTV features plug into it, and the state machine
+the loan walks. Cross-references at the end point to the verifying test suites.
+
+```
+                                ┌──────────────────────┐
+   (loan in FUNDED state)        │   Loan.state = FUNDED │  ←─── drawLoan sets this when
+   ─────────────────────────────→│   collateral locked   │       FCC attestation + collateral ratio pass
+                                └──────────┬───────────┘
+                                           │
+                ┌──────────────────────────┼──────────────────────────┐
+                │                          │                          │
+                ▼ (manual path)            ▼ (automated path)         ▼ (time path)
+   ┌─────────────────────────┐  ┌────────────────────────┐  ┌────────────────────────┐
+   │ startLiquidationAuction │  │ checkAndTriggerLiquid- │  │  loan.deadline expires │
+   │ (anyone, HF < 1.0)      │  │  ation (single) /      │  │  repayDeadline passed  │
+   │                         │  │  batchCheckLiquidation │  │                        │
+   └────────────┬────────────┘  │  (uint256[] arr)       │  └───────────┬────────────┘
+                │               └───────────┬────────────┘             │
+                │                           │                          │
+                │       ┌───────────────────┘                          │
+                │       │  (reads live FTSOv2 XRP/USD, recomputes      │
+                │       │   getHealthFactor(loanId). No-op if loan      │
+                │       │   not FUNDED, price zero, or HF == 1.0.)      │
+                │       ▼                                                │
+                └─────────────────────► startLiquidationAuction ◄──────┘
+                                         │
+                                         ▼
+                          ┌─────────────────────────────────┐
+                          │  Loan.state = LIQUIDATION_AUCTION│
+                          │  (Dutch auction, linear-decay)   │
+                          │                                  │
+                          │  bidOnLiquidation(loanId, bid)   │  ←── bidders as price decays
+                          │  price = ceiling → floor         │
+                          └────────────────┬────────────────┘
+                                           │
+                                           ▼
+   ┌─────────────────────────┐  ┌─────────────────┐
+   │   finalizeAuction()      │  │ (no bids:         │
+   │   winner pays lender,    │  │  bad-debt path)   │
+   │   surplus → borrower     │  └────────┬─────────┘
+   └────────────┬────────────┘            │
+                │                         ▼
+                ▼            ┌──────────────────────────────┐
+   ┌──────────────────┐    │  recoverDefaultedCollateral  │
+   │ Loan.state=CLOSED │    │   lender seizes collateral,  │
+   │  (lastState)      │    │   auction forfeited           │
+   └──────────────────┘    │   → Loan.state = DEFAULTED   │
+                          │     ⇒ then IDLE              │
+                          └──────────────────────────────┘
+
+
+──── Per-collateral LTV configuration path (parallel, owner-only) ────
+
+       ┌──────────────────────┐
+       │   vault owner        │
+       │   (msg.sender==owner)│
+       └──────────┬───────────┘
+                  │ 1. registerCollateral(token, ltvBps, decimals)
+                  │    e.g. onboard WFLR (18-dec, 50% LTV)
+                  │ 2. updateLTV(token, newBps)
+                  │    (only tightens ≤ ctor default;
+                  ▼     emits CollateralRegistered / LTVUpdated)
+   ┌───────────────────────────┐
+   │ collateralLTV[token]      │
+   │ collateralDecimals[token] │   ← mappings
+   └──────────────┬────────────┘
+                  │
+                  │ (read at draw time)
+                  ▼
+   ┌───────────────────────────────────────────────────────────────┐
+   │ getMaxLoanAmount(loanId):                                     │
+   │   collateralValueUsd18 = collateral × price (FTSOv2) × 1e18   │
+   │   maxLoan = min(collateralRatioBps, collateralLTV[token])      │
+   │            × collateralValueUsd18 / 10000                     │
+   │ drawLoan(loanId, loanAmount): reverts if loanAmount > maxLoan │
+   └───────────────────────────────────────────────────────────────┘
+
+
+──── FTSO-threshold trigger flow (the "auto" leg, expanded) ────
+
+   ┌──────────────┐   live XRP/USD price    ┌────────────────────────────┐
+   │   FTSOv2     │ ─────────────────────→  │ checkAndTriggerLiquidation │
+   │  getFeed     │  (with staleness check  │  (external, payable)       │
+   │  ByIdInWei   │   ftsoStalenessLimit)   │                            │
+   └──────────────┘                         └──────────────┬─────────────┘
+                                                            │
+                              health = collateral × price / (principal + interest)
+                                                            │
+         ┌──────────────────────────────────────────────────┼─────────────────────────┐
+         │                                                │                          │
+         ▼                                                ▼                          ▼
+   health ≥ 1.0                                       health < 1.0                price == 0
+   → no-op (return)                                   → startLiquidationAuction    → no-op (return)
+                                                       │
+                                                       ▼
+                                  Loan.state = FUNDED → LIQUIDATION_AUCTION
+
+   batchCheckLiquidation(loanIds[]) iterates the same path per loan in one
+   transaction, triggering only those whose recomputed HF < 1.0.
+```
+
+
+**Verifying test suites** (run with `forge test --match-contract CreditGateVaultTriggerTest` / `CreditGateVaultLTVTest` / `CreditGateVaultAuctionTest`):
+
+| Feature | Test suite | Tests | Key cases |
+|---------|-----------|-------|-----------|
+| Auto trigger | `test/CreditGateVault.trigger.t.sol` | **9** | `checkAndTriggerLiquidation` (fires when undercollateralized; no-op when healthy / price zero / not funded / exactly at threshold), `batchCheckLiquidation` (empty no-op, all-healthy empty, only-unhealthy triggered), `triggeredAuctionIsFullyFunctional` (auto-started auction is bid-able + finalizable) |
+| Per-collateral LTV | `test/CreditGateVault.ltv.t.sol` | **11** | `registerCollateral` (owner-only, invalid LTV/zero-address reverts, `CollateralRegistered` emit), `updateLTV` (owner-only, unknown-collateral revert, `LTVUpdated` emit), `getLTV` default, `getMaxLoanAmount` (LTV-bound vs. ratio-bound, zero collateral), `drawLoan` respects tightened LTV cap |
+| Dutch auction | `test/CreditGateVault.auction.t.sol` | **5** | `startLiquidationAuction` (reverts if not FUNDED; succeeds on expired loan), `bidOnLiquidation`, `finalizeAuction` (with/without bids), price-decay math, surplus refund |
+
+These three suites added by subagent #57 grew the test surface from
+**10 suites / 118 tests → 11 suites / 138 tests**, all passing on Coston2.
+
 ## EIP-191 Eligibility Attestation Payload
 
 The cross-language compatibility between the Go FCC handler and the Solidity vault hinges on **byte-identical** payload construction. Both sides must produce the exact same `keccak256` hash.
@@ -64,7 +181,7 @@ Payload Hash:
   keccak256(abi.encode(
       DOMAIN,                    // bytes32
       borrower,                  // address  → 20 bytes, left-padded to 32
-      limit,                     // uint256  → the credit limit (6-decimals USDT0)
+      limit,                     // uint256  → the credit limit (18-decimals USDT0)
       expiry,                    // uint64   → block.timestamp deadline
       nonce,                     // uint32   → borrowerNonce at request time
       revocationVersion          // uint8    → borrowerRevocationVersion

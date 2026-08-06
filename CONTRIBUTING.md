@@ -43,7 +43,7 @@ npm install
 cp .env.example .env.local   # then edit RPC + contract addresses
 cd ..
 
-# 4. Run the Solidity test suite (118 tests across 9 suites)
+# 4. Run the Solidity test suite (138 tests across 11 suites)
 forge test
 
 # 5. Start the FCC handler (default :8080, /health + /action)
@@ -113,7 +113,7 @@ creditgate/
 ### Solidity (Foundry)
 
 ```bash
-forge test                                  # all 118 tests, 9 suites
+forge test                                  # all 138 tests, 11 suites
 forge test -vvv                             # verbose traces (useful for failures)
 forge test --match-contract CreditGateVault # main unit suite only
 forge test --match-test test_RequestLoan    # single test by name

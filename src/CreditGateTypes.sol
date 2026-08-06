@@ -61,7 +61,7 @@ contract CreditGateTypes {
     struct Loan {
         address borrower;
         uint256 collateralAmount;          // FXRP deposited (6 decimals)
-        uint256 loanAmount;                // USDT0 borrowed (6 decimals)
+        uint256 loanAmount;                // USDT0 borrowed (18 decimals)
         uint256 requiredRepaymentDrops;    // XRP drops to repay on XRPL
         uint256 deadline;                  // UNIX timestamp: liquidation allowed after
         uint64  eligibilityExpiry;         // UNIX: attestation must be fresh
@@ -74,7 +74,7 @@ contract CreditGateTypes {
 
     struct EligibilityAttestation {
         address borrower;          // Target borrower
-        uint256 limit;             // Max USDT0 loan (6 decimals)
+        uint256 limit;             // Max USDT0 loan (18 decimals)
         uint64  expiry;            // UNIX: attestation expires after this
         uint32  nonce;             // Must match loan's eligibilityNonce
         uint8   revocationVersion; // Must be > borrowerRevocationVersion[borrower]

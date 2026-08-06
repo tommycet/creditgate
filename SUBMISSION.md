@@ -62,7 +62,7 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 
 Every claim is backed by a file a judge can open and run.
 
-- **118 tests across 9 suites, 0 failures** — `forge test` reproduces on camera
+- **138 tests across 11 suites, 0 failures** — `forge test` reproduces on camera
 - **97.75% line coverage** of `CreditGateVault.sol`
 - **5 security fixes audit-verified** — all M1/M2/L1/L2/L4/L5 findings remediated; `planning/security-audit/verdict.md` = PASS
 - **Go-TEE ↔ Solidity cross-language compatibility** — `test/CreditGateVault.go-tee-compat.t.sol` (2 tests): the Go handler's real EIP-191 signature is accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`
@@ -88,7 +88,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 118 across 9 suites, 0 failures |
+| Tests passing | 138 across 11 suites, 0 failures |
 | Line coverage | 97.75% |
 | Flare primitives used | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
@@ -102,7 +102,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 ## Team
 
-**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (118 tests / 9 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
+**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (138 tests / 11 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
 
 ## Future Roadmap
 
@@ -116,11 +116,12 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 ## Repository
 
-**GitHub:** `<REPO_URL>` *(placeholder — replace with the public repo URL before submitting to DoraHacks)*
+**GitHub:** https://github.com/metaverseguru/creditgate
+*(If the repo is set to private at judging time, contact via DoraHacks — it will be made public for the submission window. The repository contains the full Solidity vault, Foundry test suite (`forge test` → 138 tests / 11 suites / 0 failures), FCC Go handler, and Next.js frontend.)*
 
 **Quick start:**
 ```bash
-forge test                                       # 118 tests, 9 suites, 0 failures
+forge test                                       # 138 tests, 11 suites, 0 failures
 cd frontend && npm run dev                         # http://localhost:3000
 cd fcc/credit-extension/extension && go run .      # :8080 — POST /action → EIP-191 attestation
 ```

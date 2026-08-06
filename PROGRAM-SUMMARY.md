@@ -28,13 +28,15 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `ARCHITECTURE.md` — EIP-191 payload, FDC flow, Flare primitive addresses
 - `DEMO.md` — 90-second demo script
 
-## Current State (118 tests, 9 suites, 0 failures)
-- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge
-- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 118 tests / 7 → 9 suites):
+## Current State (138 tests, 11 suites, 0 failures)
+- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 11 LTV-config + 9 liquidation-trigger
+- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 138 tests / 7 → 11 suites):
   1. **Dutch auction liquidation** — when `getHealthFactor` drops below 1.0, anyone can start a linear-decay Dutch auction (`startLiquidationAuction` → `bidOnLiquidation` → `finalizeAuction`); surplus refunds the borrower.
   2. **Interest rate mechanism** — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`), enforced in the FDC repayment check so MemoData must cover principal + accrued interest; `InterestAccrued` emitted on close.
   3. **Health factor & loan/portfolio views** — `getHealthFactor` (collateral×1e18 / (principal+interest), gates liquidation), `getLoanSummary`, `getPortfolioSummary`.
   4. **Mock credit bureau** — FCC TEE consults a reproducible mock bureau (score + attestation-based eligibility) instead of a centralized bureau; only the signed EIP-191 attestation crosses the trust boundary. See `ARCHITECTURE.md` § "Credit evaluation model".
+  5. **Automated FTSO-threshold liquidation trigger** (`CreditGateVault.trigger.t.sol`, 9 tests) — `checkAndTriggerLiquidation(loanId)` reads the live FTSOv2 XRP/USD feed and auto-calls `startLiquidationAuction` when the recomputed health factor crosses the undercollateralization threshold, removing the need for a manual keeper. `batchCheckLiquidation(loanIds)` iterates a portfolio in one call; no-ops guard non-`FUNDED` loans, zero-price feeds, and the exact-threshold boundary. `triggeredAuctionIsFullyFunctional` proves the auto-started auction runs through bid + finalize end-to-end.
+  6. **Per-collateral LTV ratio configuration** (`CreditGateVault.ltv.t.sol`, 11 tests) — `registerCollateral` / `updateLTV` onboard multiple collateral assets with per-asset loan-to-value ratios (default 65% on FXRP), so `drawLoan` and `getMaxLoanAmount` enforce `collateral × price × LTV ≥ loan` per-token instead of the single immutable `collateralRatioBps`. Per-token LTVs can only tighten below the constructor default; owner-only access control + `CollateralRegistered` / `LTVUpdated` events.
 - Frontend builds (6 routes prerendered); landing page stats badges, FCC attestation submission panel, liquidate button, auction panel, health-factor readout, full-state color badges, error banner, token balances
 - FCC Go handler ships `/health` endpoint + structured logging + EIP-191 signing accepted by Solidity `ecrecover`
 - Security audit: PASS-WITH-NOTES (all fixes applied: M1/M2/L1/L2/L4/L5)
@@ -62,6 +64,6 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - Chain ID: 114, RPC: https://coston2-api.flare.network/ext/C/rpc
 
 ## Build Commands
-- `forge test` — run all 118 tests across 9 suites
+- `forge test` — run all 138 tests across 11 suites
 - `cd frontend && npm run build` — build frontend
 - `cd fcc/credit-extension/extension && go run .` — start FCC handler (:8080, /health + /action)
