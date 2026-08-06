@@ -1,90 +1,121 @@
 # Demo Video Narration Script — CreditGate
 
-> **Target video:** ~3:00 runtime, 1080p, <50 MB.
+> **Target video:** ~75s spoken content, under 90s total with title/closer cards.
 > **Audience:** Flare Summer Signal judges (Bounty 2: Confidential Compute Apps).
-> **Tone:** Measured, confident, evidence-led. One Flare primitive named per scene.
+> **Tone:** Measured, confident, evidence-led. One Flare primitive named per beat.
 > **Recording order:** Record visuals first; narrate to fit scene boundaries.
+> **Timing structure:** Hook (5s) → Problem (10s) → Solution demo (30s) → Live proof (25s) → CTA (10s).
 
 ---
 
-## Scene 1: The Problem (20s, 0:00–0:20)
+## Scene 1 — Hook (5s, 0:00–0:05)
 
-**VISUAL:** Slow zoom on the `/transparency` dashboard. Three stats panels fade in: total FXRP minted, fraction not deployed in any lending market, implied unmet credit demand. A subtle red tint marks "idle." The CreditGate logo fades in over the panels.
+**VISUAL:** Black. CreditGate wordmark snaps on. One line types: *"XRP collateral that can't be sold — credit it anyway."* Subtitle: *Live on Coston2 · 141 tests · Audit-verified.*
 
 **NARRATOR:**
-> Billions of dollars in XRP sit locked on Flare as FXRP collateral, earning peg-anchor yield but unavailable for credit. The holders will not sell, and they will not grant a centralized bureau access to their position. CreditGate unlocks that collateral using only Flare's native primitives — no oracle, no bureau, no broker.
+> Billions in XRP sit on Flare as FXRP — earning peg yield, but never credit. CreditGate unlocks it. Live on Coston2 today.
 
 ---
 
-## Scene 2: Deposit + Register (25s, 0:20–0:45)
+## Scene 2 — Problem (10s, 0:05–0:15)
 
-**VISUAL:** Cut to `/app`. MetaMask prompt connects to Coston2 (chain ID 114). Borrower clicks **Deposit**, 100 FXRP. Terminal 2 logs the tx hash. The loan card flips to `COLLATERAL_DEPOSITED`. Borrower pastes an XRPL `r-address`, clicks **Register** — a `keccak256` hash appears on the card as the bound snapshot.
+**VISUAL:** Zoom on the `/transparency` dashboard. Three stat panels fade in: total FXRP minted, fraction idle in any lending market, implied unmet credit demand. Red tint marks "idle." CreditGate logo settles over the panels.
 
 **NARRATOR:**
-> First, the borrower deposits one hundred FXRP as collateral on the Coston2 testnet, moving the loan into the `COLLATERAL_DEPOSITED` state. Then the borrower registers their XRPL repayment address — keccak256-hashed and bound to the loan as an immutable snapshot. That snapshot is what the Flare Data Connector will later check, binding every repayment to this specific loan and defeating address-substitution attacks.
+> Billions of dollars of FXRP collateral sit locked on Flare — earning the peg, but unavailable for credit. The holders won't sell, and they won't give a centralized bureau access to their position. CreditGate routes around both, using only Flare's native primitives. No oracle. No bureau. No broker.
 
 ---
 
-## Scene 3: FCC Credit Check (30s, 0:45–1:15)
+## Scene 3 — Solution Demo (30s, 0:15–0:45)
 
-**VISUAL:** Borrower clicks **Request Eligibility**. Split-screen: Terminal 1 (the Go FCC handler on `:8080`) lights up with structured logs — input validation, revocation check, collateral sufficiency, limit derivation, `EIP-191 signing`. The handler returns `(v, r, s)`. Back in the browser, borrower clicks **Submit Attestation**. The vault calls `ecrecover`; the card flips to `ELIGIBLE`. A callout reads: "Go signature → Solidity ecrecover ✓".
+**VISUAL:** Cut to `/app` on Coston2 (chain ID 114). Four beats, one per primitive, each tagged on screen with a corner badge:
+
+**3a · FCC credit check (8s):** Borrower clicks **Request Eligibility**. Split-screen — Terminal 1 (the Go FCC handler on `:8080`) logs input validation, revocation check, collateral sufficiency, limit derivation, **EIP-191 signing**. Returns `(v, r, s)`. Back in the browser, borrower clicks **Submit Attestation**. The vault calls `ecrecover`; the card flips to `ELIGIBLE`. Callout: *"Go signature → Solidity ecrecover ✓."*
+
+**3b · FXRP deposit (6s):** Borrower clicks **Deposit**, 100 FXRP. Terminal 2 logs the tx hash. The loan card flips to `COLLATERAL_DEPOSITED`. Borrower pastes an XRPL `r-address`, clicks **Register** — a `keccak256` hash appears as the bound snapshot.
+
+**3c · USDT0 loan (8s):** Borrower clicks **Draw Loan** for 50 USDT0. Overlay: *"FTSOv2 → XRP/USD price fetched."* The vault enforces `collateral × price × 10000 ≥ loan × collateralRatioBps`. Card flips to `FUNDED`. USDT0 ticker on the borrower widget increments. Logs the disbursement tx.
+
+**3d · Dutch auction liquidation + FTSO monitor (8s):** Brief cut to the **liquidate** panel — health factor (`getHealthFactor`) falling below 1.0 as the FTSOv2 XRP/USD feed ticks down. `checkAndTriggerLiquidation` fires automatically; `startLiquidationAuction` begins a linear-decay Dutch auction; `bidOnLiquidation` fills at the decayed price; `finalizeAuction` refunds surplus to the borrower. Callout: *"Automated. No manual keeper."*
 
 **NARRATOR:**
-> The borrower requests eligibility, and the frontend posts to the FCC confidential-compute handler running inside a trusted execution enclave. The handler validates inputs, checks the revocation version, mirrors the vault's collateral-sufficiency math against the live XRP/USD price, derives a limit, and signs an EIP-191 attestation. The vault recovers the signer on-chain with `ecrecover` and flips the loan to `ELIGIBLE` — the only step where confidential compute touches the chain, and the TEE never reveals *why* the borrower qualified.
+> The flow uses all four Flare primitives — each load-bearing. First, **FXRP** is deposited as collateral and the repayment address is bound per-loan via keccak256 snapshot. Then **FCC** — the confidential-compute handler signs an EIP-191 attestation inside the enclave; the only thing that hits the chain is `ecrecover` of that signature, and the TEE never reveals *why* the borrower qualified. Next **FTSOv2** — the live XRP/USD feed prices the draw and enforces the one-hundred-fifty-percent ratio on-chain. The same feed drives an automated liquidation trigger: when health factor drops below one, a linear-decay Dutch auction starts with no manual keeper, with surplus refunded to the borrower. Finally the borrower repays on XRPL, attaching a thirty-two-byte memo commitment — and **FDC** verifies that payment on Flare against status, amount, the memo, the per-loan address snapshot, and an anti-replay guard. Every primitive is structural. Remove one and the flow collapses.
 
 ---
 
-## Scene 4: Draw Loan (20s, 1:15–1:35)
+## Scene 4 — Live Proof (25s, 0:45–1:10)
 
-**VISUAL:** Borrower clicks **Draw Loan** for 50 USDT0. Brief overlay: "FTSOv2 → XRP/USD price fetched." The vault enforces `collateral × price × 10000 ≥ loan × collateralRatioBps`. Card flips to `FUNDED`. USDT0 balance ticker on the borrower widget increments. Terminal 2 logs the disbursement tx.
+**VISUAL:** Cut to Terminal 2. Four receipts flash in sequence, each a clickable hyperlink card:
+
+1. **Vault (Coston2, source-verified on Blockscout)** — address `0x5e74d…a99939`, deploy tx `0xf2678b…771cb`, holds 5 FXRP live collateral.
+2. **Live FXRP deposit** — tx `0x2ba65f…4149`.
+3. **Real XRPL testnet payment** — tx `0xb9f346…4720`, `tesSUCCESS`, ledger 19689886, 1,000,000 drops, memo `CREDITGATE-LOAN-REPAYMENT-FDC-VERIFY-2026-08-06`.
+4. **Real FDC attestation submitted on Coston2** — tx `0x7fd6c8…4a42`, status 1, FDC round 1417946 finalized on-chain.
+
+A final card: *"Submit stage proven with real data. Retrieve stage awaiting Coston2 DA Layer indexing (testnet infra limit, not a contract bug)."*
 
 **NARRATOR:**
-> With eligibility confirmed, the borrower draws a USDT0 loan within the one-hundred-fifty-percent collateral ratio. The vault reads the live XRP/USD price from FTSOv2, enforces the coverage check on-chain, and disburses USDT0 to the borrower on Coston2. The loan is now `FUNDED` — collateral priced and locked by the same oracle that secures the Flare network.
+> Live on Coston2 — source-verified on Blockscout. The vault is deployed at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`, holding five FXRP of live collateral against the live FTSOv2 feed. This is a real XRPL testnet payment — `tesSUCCESS`, one-million drops, memo `CREDITGATE-LOAN-REPAYMENT-FDC-VERIFY`. And this is the on-chain attestation the FDC accepted in round fourteen-one-seven-nine-four-six — already finalized. The full submit path runs with real data end-to-end. The retrieve-and-verify stage depends on Coston2 testnet DA Layer indexing — a testnet infrastructure limit, not a contract bug, and the verifier ABI is live and ready.
 
 ---
 
-## Scene 5: Repay on XRPL (25s, 1:35–2:00)
+## Scene 5 — CTA (10s, 1:10–1:20)
 
-**VISUAL:** Loan card renders repayment instructions — amount in drops, vault's XRPL destination, and the 32-byte `expectedCommitment` memo. Cut to Terminal 3. A pre-captured XRPL testnet payment proof is fed to `verifyXRPPayment()` via the live `FdcVerification` ABI. Logs show: status ok, receivedAmount ok, memoData matches commitment, receivingAddressHash matches snapshot, `proofConsumed` anti-replay set. Card flips to `CLOSED`. Collateral release logged.
+**VISUAL:** Dark. CreditGate wordmark centers. Three lines type out: *"141 tests · 11 suites · 0 failures"*, *"97.75% coverage"*, *"Audit-verified"*. Final line: *"Built entirely on Flare — Flare Summer Signal, Bounty 2."* Flare logo bottom-right. Fade to black.
 
 **NARRATOR:**
-> The borrower repays on the XRPL testnet, attaching a thirty-two-byte memo commitment that cryptographically binds the payment to this specific loan. The Flare Data Connector verifies the proof on-chain — checking status, amount, the memo commitment, and the receiving-address snapshot. The vault marks the loan `CLOSED` and releases the collateral, with an anti-replay guard ensuring each proof is consumed exactly once.
+> CreditGate — private credit eligibility, public repayment verification, built entirely on Flare. One hundred forty-one tests across eleven suites, zero failures, audit-verified. The credit layer Flare has been missing.
 
 ---
 
-## Scene 6: Security Evidence (25s, 2:00–2:25)
+## Live Proof Details (reference, not narrated verbatim)
 
-**VISUAL:** Stay on Terminal 3. `forge test` scrolls past — "141 tests, 11 suites, 0 failures." Three panels flash in sequence: (1) reentrancy attack — a malicious FXRP token re-entering `depositCollateral`, blocked by `ReentrancyGuard`; (2) Go-TEE compat — a Go-produced signature accepted by Solidity `ecrecover`, one-byte tamper → `InvalidEligibilitySigner`; (3) invariant fuzz — FXRP conservation and USDT0 solvency across 256 runs. A badge: "Audit PASS-WITH-NOTES, all fixes applied."
+> All artifacts below are live on Coston2 (chain ID 114) unless marked XRPL Testnet. Share these links in the submission form.
 
-**NARRATOR:**
-> One hundred eighteen tests across nine suites, zero failures, ninety-seven-point-seven-five percent coverage. A genuine reentrancy attack — a malicious FXRP token that re-enters deposit mid-transfer — is blocked by `ReentrancyGuard`, and we wrote the attack ourselves to prove it. A signature from the Go FCC handler is accepted verbatim by Solidity `ecrecover`, and invariant fuzz tests confirm FXRP conservation and USDT0 solvency across two-hundred-fifty-six runs.
+| Artifact | Value | Verify |
+|----------|-------|--------|
+| **Vault address** | `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` | [coston2-explorer.flare.network/address/0x5e74d…a99939](https://coston2-explorer.flare.network/address/0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939) (source verified on Blockscout) |
+| **Deploy tx** | `0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb` | [explorer/tx/0xf2678b…771cb](https://coston2-explorer.flare.network/tx/0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb) |
+| **FXRP approve tx** | `0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8` | [explorer/tx/0x7f1905…36b8](https://coston2-explorer.flare.network/tx/0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8) |
+| **FXRP deposit tx** | `0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149` | [explorer/tx/0x2ba65f…4149](https://coston2-explorer.flare.network/tx/0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149) |
+| **FXRP deposited** | 5 FXRP (5,000,000 units, 6 decimals) | — |
+| **Vault owner** | `0x5a3969F3767Cde96D662A94cAa79779073F80A0c` | — |
+| **Real XRPL testnet payment** | `0xb9f346a3f25581fbb561842bf5d3c5c91b9909cf00d13dec7e7939b5c6347420` | `tesSUCCESS` · ledger 19689886 · 1,000,000 drops (1 XRP) · memo `CREDITGATE-LOAN-REPAYMENT-FDC-VERIFY-2026-08-06` |
+| **FDC attestation Coston2 tx** | `0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42` | status 1 · block 33712406 · FDC round 1417946 finalized · AttestationRequest emitted |
+| **FdcHub (verifier contract)** | `0x48aC463d7975828989331F4De43341627b9c5f1D` | — |
+| **XRPL sender** | `rPnBvQhLnPJbxBfXJDWgc44D48JHw32gj5` | — |
+| **XRPL receiver (vault XRPL)** | `rrpBcxxoHZuBWSTT2ZfCwHkQBBdfnLqgbK` | — |
 
----
+**RPC / explorer:**
+- Coston2 RPC: `https://coston2-api.flare.network/ext/C/rpc`
+- Coston2 explorer (Blockscout): `https://coston2-explorer.flare.network`
+- XRPL testnet RPC: `s.altnet.rippletest.net:51234/`
 
-## Scene 7: Flare Primitives (20s, 2:25–2:45)
+**Verify the attestation on-chain:**
+```bash
+cast receipt 0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42 \
+  --rpc-url https://coston2-api.flare.network/ext/C/rpc
+```
 
-**VISUAL:** Final card — the four-row primitive table animates in. Each row highlights the act where it fired: FAssets (deposit), FTSOv2 (draw), FCC (credit check), FDC (repay). A single line under the table: "Each load-bearing. None decorative." Competitor comparison row fades in: AegisFlow (FCC+FDC, no FTSO, no cross-chain collateral), FlareShield AI (FCC+FTSO, no FDC), Axi (TEE, not Flare FCC). CreditGate row: all four.
-
-**NARRATOR:**
-> CreditGate is the only Flare Summer Signal submission using all four primitives in a single load-bearing flow: FAssets for collateral, FTSOv2 for pricing, FCC for private credit evaluation, and FDC for cross-chain repayment verification. Each primitive is structural — remove one and the flow collapses. This is the credit layer Flare has been missing.
-
----
-
-## Scene 8: Closing (15s, 2:45–3:00)
-
-**VISUAL:** Dark background. CreditGate wordmark centers. Three stat lines type out: "141 tests · 11 suites · 0 failures", "97.75% coverage", "Audit-verified". Final line: "Deploying to Coston2." The Flare logo and "Bounty 2 — Confidential Compute Apps" appear bottom-right. Fade to black.
-
-**NARRATOR:**
-> CreditGate — private credit eligibility, public repayment verification, built entirely on Flare. One hundred eighteen tests, ninety-seven-point-seven-five percent coverage, security audit verified. Deploying to Coston2.
+**FDC retrieve-stage caveat (honest framing):** Voting round 1417946 is finalized on-chain (`isFinalized(200, 1417946) = true`), but the Coston2 DA Layer API returns `"attestation request not found"` for `testXRP` attestations — a Coston2 testnet infrastructure limitation, not a CreditGate contract bug. The verifier ABI (`FdcVerification`) is deployed and the `verifyXRPPayment()` path runs against the existing Foundry fixture. See `evidence/fdc-real-verify.md` for the full submit-stage evidence.
 
 ---
 
 ## Production Notes
 
-- **Total runtime:** 3:00 (8 scenes; boundaries at 0:20, 0:45, 1:15, 1:35, 2:00, 2:25, 2:45).
-- **TTS provider:** Edge TTS `en-US-AndrewMultilingualNeural` at `-10%` rate for measured demo pace (alternatives: Groq Orpheus `troy` voice — but note Orpheus speaks ~2x slower; trim narration if using it).
-- **Narration word count:** ~520 words across all scenes (fits 3:00 at ~3 words/sec, the sweet spot for edge-tts at -10%).
+- **Total spoken content:** ~75s across five scenes (boundaries at 0:05, 0:15, 0:45, 1:10, 1:20).
+- **TTS provider:** Edge TTS `en-US-AndrewMultilingualNeural` at `-10%` rate for measured demo pace (alternatives: Groq Orpheus `troy` voice — but Orpheus speaks ~2x slower; trim narration if using it).
+- **Narration word count:** ~270 words across all spoken scenes (fits ~75s at ~3.6 words/sec, the sweet spot for edge-tts at -10%). The timing structure (Hook 5s → Problem 10s → Demo 30s → Proof 25s → CTA 10s) maps exactly to the spoken beats; the **Live Proof Details** table is a reference section for the submission form and is *not* read aloud.
 - **Visual sync:** Record the browser + terminals first, then narrate to fit each scene's visual boundary. Do not let narration exceed video duration — trim the script, not the footage.
-- **On the FDC step (Scene 5):** say "fixture proof, live verifier ABI" — do not overclaim a live FDC round. Honesty on this one step builds credibility for the other three primitives that *are* live.
-- **Layout:** three terminals across the top, browser below; keep Terminal 3 (tests) visible throughout — it is the receipts.
-- **Close on the four-primitive tableau** — it is the single line a judge will remember.
+- **Coverage check — every required flow element appears:** the seven requested checkpoints map to scenes as follows —
+  - **(a) FCC credit check** → Scene 3a (EIP-191 sign → Solidity ecrecover → `ELIGIBLE`)
+  - **(b) FXRP deposit** → Scene 3b (100 FXRP → `COLLATERAL_DEPOSITED` + XRPL address snapshot)
+  - **(c) USDT0 loan** → Scene 3c (50 USDT0 draw against the live FTSOv2 price → `FUNDED`)
+  - **(d) FTSO price monitoring** → Scene 3d (health-factor readout from `getFeedByIdInWei(XRP/USD)` driving the auto-trigger)
+  - **(e) Dutch auction liquidation** → Scene 3d (`startLiquidationAuction` → `bidOnLiquidation` → `finalizeAuction`, linear price decay, surplus refund)
+  - **(f) XRPL repayment + FDC verification** → Scene 3 closing beat + Scene 4 (real XRPL payment + FDC attestation tx)
+  - **(g) Live Coston2 deployment with tx hashes** → Scene 4 + the Live Proof Details reference table (vault, deploy, deposit, FDC attestation, XRPL payment hashes + Blockscout link)
+- **On the FDC retrieve stage:** say *"submit stage proven with real data; retrieve stage awaiting Coston2 DA Layer indexing — testnet infra limit, not a contract bug"* (Scene 4). The verifier ABI is live; overclaiming an end-to-end live FDC round would mislead judges. Honesty on this one step builds credibility for the other three primitives that *are* fully live.
+- **Layout:** three terminals across the top (FCC handler · vault app · tests/FDC), browser below; keep the test/Evidence terminal visible throughout — it is the receipts.
+- **Close on the four-primitive tableau beat** — it is the single line a judge will remember.
+- **Umbrella line for the controls:** *"Each load-bearing. None decorative."* — CreditGate is the only Flare Summer Signal submission using FAssets + FTSOv2 + FCC + FDC in a single coherent flow.
