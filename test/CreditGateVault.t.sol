@@ -1169,4 +1169,128 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         assertEq(loan1.collateralAmount, DEPOSIT_50_FXRP);
         assertEq(loan2.collateralAmount, DEPOSIT_50_FXRP);
     }
+
+    // ═══════════════════ INTEREST RATE TESTS (subagent #47) ═══════════════════
+
+    function test_interest_constants() public view {
+        assertEq(vault.INTEREST_RATE_BPS(), 500);
+        assertEq(vault.SECONDS_PER_YEAR(), 365 days);
+    }
+
+    function test_getInterestOwed_zeroBeforeFunded() public {
+        uint256 loanId = _setupLoanToEligible();
+        // Loan still ELIGIBLE → no interest owed.
+        assertEq(vault.getInterestOwed(loanId), 0);
+        assertEq(vault.getTotalRepayment(loanId), 0);
+    }
+
+    function test_getInterestOwed_zeroImmediatelyAfterDraw() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        // At draw time elapsed == 0 → interest is exactly 0.
+        assertEq(vault.getInterestOwed(loanId), 0);
+        assertEq(vault.getTotalRepayment(loanId), LOAN_100_USDT);
+    }
+
+    function test_getInterestOwed_accruesOverTime() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        // Warp forward exactly one year: simple interest = 5% of 100 USDT0 = 5e18.
+        vm.warp(block.timestamp + 365 days);
+        uint256 expectedInterest = (LOAN_100_USDT * 500 * (365 days)) /
+            (10000 * 365 days);
+        assertEq(expectedInterest, 5e18);
+        assertEq(vault.getInterestOwed(loanId), expectedInterest);
+        assertEq(vault.getTotalRepayment(loanId), LOAN_100_USDT + expectedInterest);
+    }
+
+    function test_getInterestOwed_zeroAfterClosed() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        // Repay immediately (interest = 0) → loan CLOSED → no interest reported.
+        CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        IXRPPayment.Proof memory proof = _buildProof(
+            loan.requiredRepaymentDrops, loan.expectedCommitment,
+            keccak256("rCreditGateBorrower1")
+        );
+        fdc.setResult(true);
+        vm.prank(borrower1);
+        vault.submitRepaymentProof(loanId, proof);
+
+        assertEq(uint8(vault.getLoan(loanId).state), uint8(LoanState.CLOSED));
+        // A closed loan owes no interest; getTotalRepayment returns principal only.
+        assertEq(vault.getInterestOwed(loanId), 0);
+        assertEq(vault.getTotalRepayment(loanId), loan.loanAmount);
+    }
+
+    function test_submitRepaymentProof_revertsIfInterestUnpaid() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        // Warp one year: 5e18 USDT0 interest → interest in drops:
+        // interestDrops = interestUSDT0 * requiredRepaymentDrops / loanAmount
+        //              = 5e18 * 40e6 / 100e18 = 2e6 drops.
+        vm.warp(block.timestamp + 365 days);
+        CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        assertEq(interestUSDT0, 5e18);
+        uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
+            loan.loanAmount;
+        assertEq(interestDrops, 2e6);
+        uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
+
+        // Pay only the principal drops → must revert with the higher requirement.
+        IXRPPayment.Proof memory proof = _buildProof(
+            loan.requiredRepaymentDrops, loan.expectedCommitment,
+            keccak256("rCreditGateBorrower1")
+        );
+        fdc.setResult(true);
+
+        vm.prank(borrower1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditGateTypes.InsufficientRepayment.selector,
+                int256(uint256(loan.requiredRepaymentDrops)),
+                requiredWithInterest
+            )
+        );
+        vault.submitRepaymentProof(loanId, proof);
+    }
+
+    function test_submitRepaymentProof_succeedsWithInterestAfterYear() public {
+        uint256 loanId = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
+
+        vm.warp(block.timestamp + 365 days);
+        CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        uint256 interestDrops = (vault.getInterestOwed(loanId) *
+            loan.requiredRepaymentDrops) / loan.loanAmount;
+        uint256 payAmount = loan.requiredRepaymentDrops + interestDrops;
+
+        IXRPPayment.Proof memory proof = _buildProof(
+            payAmount, loan.expectedCommitment,
+            keccak256("rCreditGateBorrower1")
+        );
+        fdc.setResult(true);
+
+        // Expect the InterestAccrued event from the next call (interest > 0).
+        uint256 expectedInterest = vault.getInterestOwed(loanId);
+        vm.expectEmit(true, false, false, true);
+        emit CreditGateTypes.InterestAccrued(loanId, expectedInterest);
+
+        uint256 fxrpBalBefore = fxrp.balanceOf(borrower1);
+        vm.prank(borrower1);
+        vault.submitRepaymentProof(loanId, proof);
+
+        assertEq(uint8(vault.getLoan(loanId).state), uint8(LoanState.CLOSED));
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP);
+    }
 }
