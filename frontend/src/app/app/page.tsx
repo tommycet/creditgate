@@ -547,10 +547,227 @@ export default function AppPage() {
   );
 }
 
+// S49: Auction duration is a public constant on the vault (1 hour). We
+// hardcode the value here because reading a `uint256 public constant` is not
+// exposed through the ABI (constants are compile-time). The contract mirrors
+// this same 3600s value, so the countdown stays in sync with on-chain logic.
+const AUCTION_DURATION_SECONDS = 3600;
+
+// S49: Aave-style health factor is scaled to 1e18 on-chain. type(uint256).max
+// is returned for loans with no outstanding debt to liquidate (non-FUNDED /
+// non-AUCTION), so we display a badge only for FUNDED (4) and AUCTION (9).
+function isMaxUint256(v: bigint): boolean {
+  return v === 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffn;
+}
+
+// S49: Render the on-chain health factor next to a loan, with traffic-light
+// color coding: green > 1.5, yellow 1.0–1.5, red < 1.0. Only shown for loans
+// that actually have live collateralised debt (FUNDED or AUCTION).
+function HealthFactorBadge({ loanId }: { loanId: bigint }) {
+  const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
+  // getHealthFactor is payable (forwards the FTSO query fee in msg.value),
+  // but the fee is 0 on Coston2 today. wagmi's useReadContract does not expose
+  // a `value` field, so we read it as a normal (zero-value) call — calling a
+  // payable function without attached value works because msg.value defaults to
+  // 0, which is exactly what the FTSO query requires on Coston2.
+  const { data, error } = useReadContract({
+    address: vaultAddress,
+    abi: CREDIT_GATE_ABI,
+    functionName: "getHealthFactor",
+    args: [loanId],
+    query: { refetchInterval: 15000 },
+  });
+
+  if (error) {
+    return (
+      <span
+        className="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-gray-700 text-gray-300"
+        title={`health factor read failed: ${error.message ?? String(error)}`}
+      >
+        HF: ?
+      </span>
+    );
+  }
+  if (data === undefined) {
+    return (
+      <span className="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-gray-700 text-gray-400">
+        HF: …
+      </span>
+    );
+  }
+  const hf = data as bigint;
+  if (isMaxUint256(hf)) {
+    // No outstanding debt — don't clutter the card with a badge.
+    return null;
+  }
+  // 1e18-scaled → compare as decimals of 1.0.
+  const ratio = Number(hf) / 1e18;
+  const tone =
+    ratio >= 1.5
+      ? "bg-green-900 text-green-300"
+      : ratio >= 1.0
+      ? "bg-yellow-900 text-yellow-300"
+      : "bg-red-900 text-red-300";
+  const label = ratio >= 1.5 ? "healthy" : ratio >= 1.0 ? "watch" : "at risk";
+  return (
+    <span
+      className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold ${tone}`}
+      title={`health factor = ${ratio.toFixed(3)} (1e18-scaled). <1.0 means liquidatable.`}
+    >
+      HF: {ratio.toFixed(2)} · {label}
+    </span>
+  );
+}
+
+// S49: Live Dutch-auction panel. Shown only while a loan is in the AUCTION (9)
+// state. Reads `auctions(loanId)` for startTimestamp/highestBidder/ highestBid
+// and `getAuctionPrice(loanId)` for the current decaying price. Lets a user
+// place a bid (bidOnLiquidation), and once AUCTION_DURATION has elapsed, shows
+// a "Finalize Auction" button (finalizeAuction).
+function AuctionPanel({ loanId }: { loanId: bigint }) {
+  const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
+  const { writeContract: placeBid, isPending: isBidding } = useWriteContract();
+  const { writeContract: finalize, isPending: isFinalizing } = useWriteContract();
+  const [bidAmount, setBidAmount] = useState("");
+  // Tick once a second so the countdown + finalize-eligibility roll live.
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Read the LiquidationAuction struct (public mapping getter).
+  const { data: auctionRaw } = useReadContract({
+    address: vaultAddress,
+    abi: CREDIT_GATE_ABI,
+    functionName: "auctions",
+    args: [loanId],
+  });
+  // Read the current decaying price. This reverts if state != AUCTION, so wagmi
+  // surfaces it as `error`; we guard the hook on state == 9 at the call site
+  // (AuctionPanel only renders from LoanCard when stateNum === 9), which keeps
+  // the revert from firing in practice.
+  const { data: priceRaw, error: priceError } = useReadContract({
+    address: vaultAddress,
+    abi: CREDIT_GATE_ABI,
+    functionName: "getAuctionPrice",
+    args: [loanId],
+  });
+
+  if (!auctionRaw) {
+    return <div className="text-xs text-gray-500 mt-2">Loading auction…</div>;
+  }
+  const auction = auctionRaw as {
+    startPrice: bigint;
+    startTimestamp: bigint;
+    highestBidder: `0x${string}`;
+    highestBid: bigint;
+  };
+  const startTs = Number(auction.startTimestamp);
+  const endTs = startTs + AUCTION_DURATION_SECONDS;
+  const remaining = endTs - now;
+  const expired = remaining <= 0;
+  const hasBid = auction.highestBidder !== "0x0000000000000000000000000000000000000000";
+  const currentPrice = (priceRaw ?? 0n) as bigint;
+
+  const handleBid = () => {
+    if (!bidAmount) return;
+    placeBid({
+      address: vaultAddress,
+      abi: CREDIT_GATE_ABI,
+      functionName: "bidOnLiquidation",
+      args: [loanId, parseUnits(bidAmount, 18)],
+    });
+  };
+  const handleFinalize = () => {
+    finalize({
+      address: vaultAddress,
+      abi: CREDIT_GATE_ABI,
+      functionName: "finalizeAuction",
+      args: [loanId],
+    });
+  };
+
+  return (
+    <div className="mt-3 bg-purple-950/40 border border-purple-700 rounded-lg p-3 space-y-2">
+      <div className="text-sm font-semibold text-purple-300">🇳🇱 Dutch Liquidation Auction</div>
+      <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+        <div>
+          <div className="text-gray-500">Start price</div>
+          <div className="font-mono">{formatUnits(auction.startPrice, 18)} USDT0</div>
+        </div>
+        <div>
+          <div className="text-gray-500">Current price</div>
+          <div className="font-mono text-purple-200">
+            {priceError
+              ? "— (auction closed)"
+              : `${formatUnits(currentPrice, 18)} USDT0`}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-500">Time remaining</div>
+          <div className={`font-mono ${expired ? "text-red-300" : "text-green-300"}`}>
+            {expired
+              ? "Auction ended"
+              : `${Math.floor(remaining / 60)}m ${remaining % 60}s`}
+          </div>
+        </div>
+        <div>
+          <div className="text-gray-500">Highest bidder</div>
+          <div className="font-mono text-xs">
+            {hasBid
+              ? `${auction.highestBidder.slice(0, 8)}…${auction.highestBidder.slice(-4)}`
+              : "No bids yet"}
+          </div>
+        </div>
+      </div>
+      {hasBid && (
+        <div className="text-xs text-gray-400">
+          Highest bid: {formatUnits(auction.highestBid, 18)} USDT0
+        </div>
+      )}
+
+      {/* Place Bid — only meaningful while the auction window is open. */}
+      {!expired && (
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={bidAmount}
+            onChange={(e) => setBidAmount(e.target.value)}
+            placeholder={`Bid ≥ ${priceError ? "—" : formatUnits(currentPrice, 18)} USDT0`}
+            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500"
+          />
+          <button
+            onClick={handleBid}
+            disabled={isBidding || !bidAmount}
+            className="bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors whitespace-nowrap"
+          >
+            {isBidding ? "Bidding…" : "Place Bid"}
+          </button>
+        </div>
+      )}
+
+      {/* Finalize Auction — available to anyone once AUCTION_DURATION elapses. */}
+      {expired && (
+        <button
+          onClick={handleFinalize}
+          disabled={isFinalizing}
+          className="w-full bg-orange-600 hover:bg-orange-500 disabled:bg-gray-700 rounded-lg py-1.5 text-sm font-semibold transition-colors"
+        >
+          {isFinalizing ? "Finalizing…" : "Finalize Auction"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function LoanCard({ loanId }: { loanId: bigint }) {
   const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
   const { writeContract: withdrawCollateral, isPending } = useWriteContract();
   const { writeContract: liquidate, isPending: isLiquidating } = useWriteContract();
+  // S49: startLiquidationAuction is payable (forwards the FTSO query fee; 0 on
+  // Coston2 today). We attach value: 0n rather than asking the user to set one.
+  const { writeContract: startAuction, isPending: isStartingAuction } = useWriteContract();
 
   const { data: loan } = useReadContract({
     address: vaultAddress,
@@ -588,6 +805,11 @@ function LoanCard({ loanId }: { loanId: bigint }) {
   const stateName = LOAN_STATES[Number(state) as keyof typeof LOAN_STATES] || "UNKNOWN";
   const stateNum = Number(state);
 
+  // S49: FUNDED loans past their deadline are liquidatable via the new Dutch
+  // auction path. Keep the legacy "Liquidate" button too (it directly seizes
+  // collateral without an auction), but prioritise the auction entry point.
+  const deadlinePassed = deadline > 0n && Number(deadline) <= Math.floor(Date.now() / 1000);
+
   const handleWithdraw = () => {
     withdrawCollateral({
       address: vaultAddress,
@@ -606,11 +828,26 @@ function LoanCard({ loanId }: { loanId: bigint }) {
     });
   };
 
+  // S49: kick off the Dutch-auction liquidation (payable — value: 0n on Coston2).
+  const handleStartAuction = () => {
+    startAuction({
+      address: vaultAddress,
+      abi: CREDIT_GATE_ABI,
+      functionName: "startLiquidationAuction",
+      args: [loanId],
+      value: 0n,
+    });
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
       <div className="flex justify-between items-start">
         <div>
-          <div className="font-semibold">Loan #{loanId.toString()}</div>
+          <div className="font-semibold">
+            Loan #{loanId.toString()}
+            {/* S49: health factor badge for live debt positions (FUNDED/AUCTION). */}
+            {(stateNum === 4 || stateNum === 9) && <HealthFactorBadge loanId={loanId} />}
+          </div>
           <div className="text-sm text-gray-400">
             Collateral: {formatUnits(collateralAmount, 6)} FXRP
           </div>
@@ -657,6 +894,8 @@ function LoanCard({ loanId }: { loanId: bigint }) {
                 ? "bg-gray-700 text-gray-300"
                 : stateNum === 8
                 ? "bg-red-900 text-red-300"
+                : stateNum === 9
+                ? "bg-fuchsia-900 text-fuchsia-300"
                 : "bg-gray-700 text-gray-400"
             }`}
           >
@@ -678,6 +917,17 @@ function LoanCard({ loanId }: { loanId: bigint }) {
           <div className="text-xs text-blue-300 bg-blue-900/30 rounded p-2">
             Repay {formatUnits(requiredRepaymentDrops, 6)} XRP drops on XRPL testnet with the memo commitment above, then submit the FDC proof to release collateral.
           </div>
+          {/* S49: new Dutch-auction liquidation entry point — the recommended
+               path once the loan deadline has passed. Anyone can call it. */}
+          {deadlinePassed && (
+            <button
+              onClick={handleStartAuction}
+              disabled={isStartingAuction}
+              className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 disabled:bg-gray-700 rounded-lg py-1 text-sm font-semibold transition-colors"
+            >
+              {isStartingAuction ? "Starting auction…" : "Start Liquidation Auction"}
+            </button>
+          )}
           <button
             onClick={handleLiquidate}
             disabled={isLiquidating}
@@ -687,6 +937,9 @@ function LoanCard({ loanId }: { loanId: bigint }) {
           </button>
         </div>
       )}
+      {/* S49: Dutch-auction panel — current price, countdown, bid input,
+           highest bidder, finalize button. Only while state === AUCTION (9). */}
+      {stateNum === 9 && <AuctionPanel loanId={loanId} />}
       {stateNum === 8 && (
         <div className="mt-3 text-xs text-red-300">
           Loan defaulted — collateral seized. Owner can recover via recoverDefaultedCollateral.

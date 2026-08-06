@@ -26,6 +26,18 @@ export const CREDIT_GATE_ABI = [
   "function liquidate(uint256 loanId)",
   "function recoverDefaultedCollateral(uint256 loanId)",
 
+  // S49: Dutch-auction liquidation functions + views (subagent #48/#49)
+  // getHealthFactor is a payable view (forwards the FTSO query fee in msg.value;
+  // 0 on Coston2). getAuctionPrice reverts if the loan is not in AUCTION state,
+  // so we only call it when state == 9. auctions(uint256) is a public mapping getter
+  // returning the LiquidationAuction tuple (startPrice, startTimestamp, highestBidder, highestBid).
+  "function startLiquidationAuction(uint256 loanId) payable",
+  "function bidOnLiquidation(uint256 loanId, uint256 bidAmount)",
+  "function finalizeAuction(uint256 loanId)",
+  "function getAuctionPrice(uint256 loanId) view returns (uint256)",
+  "function getHealthFactor(uint256 loanId) payable returns (uint256)",
+  "function auctions(uint256) view returns (uint256 startPrice, uint64 startTimestamp, address highestBidder, uint256 highestBid)",
+
   // Events
   "event CollateralDeposited(uint256 indexed loanId, address indexed borrower, uint256 amount)",
   "event EligibilityRequested(uint256 indexed loanId, address indexed borrower)",

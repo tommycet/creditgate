@@ -681,11 +681,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     // ═══════════════════ Health Factor & Summary Views (subagent #48) ═══════════════════
 
     /// @notice Aave-style health factor for a single loan.
-    /// @dev    `healthFactor = collateralValueUsd18 * 1e18 / loanValueUsd18`.
-    ///         A value < 1e18 means the loan is undercollateralized (liquidatable).
-    ///         For NON-FUNDED loans (no live collateralised debt to liquidate) we return
-    ///         `type(uint256).max` to denote "healthy by default" — there is nothing
-    ///         outstanding to liquidate.
+    /// @dev    `healthFactor = collateralValueUsd18 * 1e18 / loanValueUsd18`, where
+    ///         `loanValueUsd18 = loanAmount + accruedInterest` (subagent #47's interest
+    ///         module is now wired in). A value < 1e18 means the loan is
+    ///         undercollateralized (liquidatable). For NON-FUNDED loans (no live
+    ///         collateralised debt to liquidate) we return `type(uint256).max` to denote
+    ///         "healthy by default" — there is nothing outstanding to liquidate.
     ///
     ///         This is a `payable view`: reading the XRP/USD FTSOv2 feed via
     ///         `getFeedByIdInWei` is a payable call on Flare (it charges a query fee
@@ -699,15 +700,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///         and to avoid flagging a loan as unsafe because the oracle momentarily
     ///         returned a zero price. The invariants that actually act on price
     ///         (`drawLoan`, `startLiquidationAuction`) still enforce staleness.
-    ///
-    ///         Interest: subagent #47's interest-accrual is not present in this build, so
-    ///         `loanValue` is `loanAmount` only. Once interest lands it can be folded in
-    ///         here via `loanAmount + accruedInterest(loanId)`.
     /// @param  loanId The loan to query.
     /// @return Health factor scaled to 1e18.
     function getHealthFactor(uint256 loanId) public payable returns (uint256) {
         Loan storage loan = loans[loanId];
-        // No outstanding debt to liquidate → healthy by default.
+        // No outstanding debt to liquidate → healthy by default. (Only FUNDED and
+        // AUCTION have live debt; AUCTION inherits the FUNDED loan principal.)
         if (loan.state != LoanState.FUNDED && loan.state != LoanState.AUCTION) {
             return type(uint256).max;
         }
@@ -723,10 +721,13 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (xrpUsd18dp == 0) return type(uint256).max;
 
         // collateralUsd18 = collateralFxrp6dp * SCALE_TO_18 * xrpUsd18dp / 1e18
-        // loanValueUsd18  = loanAmount (USDT0 is 18dp)
+        // loanValueUsd18  = principal + accrued interest (both in USDT0 18dp).
+        // NOTE: for an AUCTION-state loan the interest has already stopped accruing
+        // (getInterestOwed returns 0 once state != FUNDED), so loanValueUsd18 ==
+        // principal only — which is exactly what remained to be recovered at auction.
         uint256 collateralUsd18 =
             (loan.collateralAmount * SCALE_TO_18 * xrpUsd18dp) / 1e18;
-        uint256 loanValueUsd18 = loanAmount; // no interest module yet
+        uint256 loanValueUsd18 = loanAmount + getInterestOwed(loanId);
 
         // healthFactor = collateralUsd18 * 1e18 / loanValueUsd18
         return (collateralUsd18 * 1e18) / loanValueUsd18;
@@ -734,14 +735,16 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
     /// @notice One-call snapshot of a single loan's key stats — meant to make the
     ///         frontend and judge's review cheaper and simpler.
-    /// @dev    Reads the live FTSO price (payable, same as `getHealthFactor`). Returns
-    ///         `interestOwed = 0` until an interest module is wired in. `healthFactor` is
-    ///         `type(uint256).max` for loans that are not FUNDED/AUCTION.
+    /// @dev    Reads the live FTSO price (payable, same as `getHealthFactor`).
+    ///         `interestOwed` is the live accrued interest in USDT0 (18dp) — 0 unless
+    ///         the loan is FUNDED. `totalRepayment = getTotalRepayment(loanId)` (i.e.
+    ///         principal + interest). `healthFactor` is `type(uint256).max` for loans
+    ///         that are not FUNDED/AUCTION.
     /// @param  loanId The loan to summarise.
     /// @return state           Current LoanState.
     /// @return collateralAmount FXRP deposited (6 decimals); 0 after liquidation/close.
     /// @return loanAmount      USDT0 borrowed (18 decimals) at draw time.
-    /// @return interestOwed    Accrued interest (always 0 in this build).
+    /// @return interestOwed    Accrued interest in USDT0 (18dp); 0 unless FUNDED.
     /// @return totalRepayment  loanAmount + interestOwed.
     /// @return deadline        Repayment deadline (UNIX seconds).
     /// @return healthFactor    Current health factor (1e18-scaled; max uint if N/A).
@@ -764,9 +767,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         loanAmount = loan.loanAmount;
         deadline = loan.deadline;
 
-        // Interest module is not present in this build (subagent #47 deferred).
-        interestOwed = 0;
-        totalRepayment = loanAmount + interestOwed;
+        // Interest-aware: hook into subagent #47's interest module.
+        interestOwed = getInterestOwed(loanId);
+        totalRepayment = loanAmount + interestOwed; // == getTotalRepayment(loanId)
 
         // Forward any msg.value to the FTSO read inside getHealthFactor.
         healthFactor = getHealthFactor(loanId);
@@ -775,16 +778,19 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @notice Aggregate portfolio view across ALL of a borrower's loans. Iterates
     ///         `borrowerLoanIds[borrower]` (which grows monotonically and is never
     ///         trimmed). For each loan it sums collateral, loan principal, and counts
-    ///         the ACTIVE (FUNDED) ones.
-    /// @dev    `totalInterestOwed` is always 0 in this build (no interest module).
-    ///         This view does NOT call `getHealthFactor` per-loan (that would re-read
-    ///         the FTSO once per loan and burn msg.value); portfolio health should be
-    ///         computed by the caller from per-loan summaries if needed.
+    ///         the ACTIVE (FUNDED) ones; it also sums accrued interest across FUNDED
+    ///         loans (0 for any non-FUNDED loan).
+    /// @dev    `totalInterestOwed` calls `getInterestOwed` per loan — that is a pure
+    ///         view (no FTSO read), so this aggregation is itself a `view`. This view
+    ///         does NOT call `getHealthFactor` per-loan (that would re-read the FTSO
+    ///         once per loan and burn msg.value); portfolio health should be computed
+    ///         by the caller from per-loan summaries if needed.
     /// @param  borrower The borrower whose portfolio to aggregate.
-    /// @return totalCollateral  Sum of collateralAmount across all of the borrower's loans.
-    /// @return totalBorrowed    Sum of loanAmount across all of the borrower's loans.
-    /// @return activeLoans      Number of loans currently in the FUNDED state.
-    /// @return totalInterestOwed Always 0 in this build.
+    /// @return totalCollateral   Sum of collateralAmount across all of the borrower's
+    ///                           loans (drops to 0 once a loan is liquidated/closed).
+    /// @return totalBorrowed     Sum of loanAmount across all of the borrower's loans.
+    /// @return activeLoans       Number of loans currently in the FUNDED state.
+    /// @return totalInterestOwed Sum of accrued interest (USDT0 18dp) across FUNDED loans.
     function getPortfolioSummary(address borrower)
         external
         view
@@ -803,10 +809,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             totalBorrowed += loan.loanAmount;
             if (loan.state == LoanState.FUNDED) {
                 activeLoans += 1;
+                totalInterestOwed += getInterestOwed(ids[i]);
             }
         }
-        // Interest module is not present in this build (subagent #47 deferred).
-        totalInterestOwed = 0;
     }
 
     // ═══════════════════ Internal ═══════════════════

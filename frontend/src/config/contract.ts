@@ -33,6 +33,8 @@ export const LOAN_STATES = {
   6: "CLOSED",
   7: "REJECTED",
   8: "DEFAULTED",
+  // S49: Dutch liquidation auction in progress (CreditGateVault.AUCTION).
+  9: "AUCTION",
 } as const;
 
 export type LoanState = keyof typeof LOAN_STATES;
