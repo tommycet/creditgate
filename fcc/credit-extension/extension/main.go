@@ -6,6 +6,8 @@
 //   - GET    /info                  — proxy health check (legacy)
 //   - GET    /health                — judge-friendly liveness probe
 //   - GET    /eligibility/:address  — last cached eligibility verdict for a borrower
+//   - GET    /credit-score/:address  — mock credit bureau: deterministic (score, dti) pair
+//                                       the TEE feeds into evaluate()'s limit adjustment
 //
 // All requests are logged with structured log.Printf lines (Go log already
 // prepends a timestamp by default) of the form:
