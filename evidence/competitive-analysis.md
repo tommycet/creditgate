@@ -53,3 +53,51 @@ forge coverage              # 97.75% lines / 100% functions on CreditGateVault.s
 ```
 
 See `evidence/test-summary.md` for the full per-suite breakdown and `planning/competitive-positioning/verdict.md` for the methodology behind the competitor BUIDL extractions.
+
+---
+
+## Bounty 2 Competitors (as of 2026-08-06)
+
+Additional confidential-compute competitors surfaced on DoraHacks during BUIDL scraping (source: `site:dorahacks.io/buidl` + manual BUIDL page review). CreditGate's standing on each dimension is noted for comparison.
+
+### 1. Whisper — BUIDL 47417 — "Private FXRP↔XRP Settlement Layer"
+
+| Dimension | CreditGate | Whisper |
+|---|---|---|
+| **One-liner** | Confidential credit vault: collateralized USDT0 loans against FXRP, eligibility attested in a TEE then verifiably repaid cross-chain via FDC. | Sealed-bid dark pool, TEE matching engine for FXRP↔XRP settlement on Flare. |
+| **Flare primitives used** | **4 of 4** (FAssets + FTSOv2 + FCC + FDC, all load-bearing) | **2 of 4** (FCC for vTPM attestation, FTSOv2 price-drift check) |
+| **Test count** | **141 tests, 11 suites, 0 failures** | **6 tests** (Solidity 0.8.24, Next.js 14) |
+| **Live deployment** | Fixture/FDCFixtureTest (FDC integration in CI) | No deployment evidence surfaced |
+| **Dev team** | — | Solo dev, 2 weeks |
+
+**CreditGate advantage:** Whisper is a dark-pool/matching-engine — a fundamentally different problem class (settlement vs. credit). It deploys only 2 of 4 Flare primitives (no FDC, no FAssets collateral), making repayment verification impossible. CreditGate's cross-chain repayment-substitution defense (XRPL address snapshot + 32-byte domain-separated MemoData commitment) has no equivalent. Its 141-test suite vs. 6 tests is also a >23x evidence gap on the "Technical execution" criterion.
+
+### 2. FlareShield AI — BUIDL 47452 — "Confidential Compute & FTSO v2 Yield Engine"
+
+| Dimension | CreditGate | FlareShield AI |
+|---|---|---|
+| **One-liner** | Confidential credit vault: collateralized USDT0 loans against FXRP, eligibility attested in a TEE then verifiably repaid cross-chain via FDC. | AI asset management + yield optimization engine using FTSOv2 and FAssets (FXRP/FBTC/FLR), FCC via AMD SEV-SNP TEE. |
+| **Flare primitives used** | **4 of 4** (FAssets + FTSOv2 + FCC + FDC, all load-bearing) | **3 of 4** (FAssets + FTSOv2 + FCC) |
+| **Test count** | **141 tests, 11 suites, 0 failures** | Prose BUIDL, no test claims surfaced |
+| **Live deployment** | FDC fixture in CI (`test/FDCFixtureTest.t.sol`) | Claims Coston2 deployment, but no live deployment tx evidence surfaced |
+| **Dev team** | — | Solo dev |
+
+**CreditGate advantage:** FlareShield AI is yield/AI-focused, not credit-risk — its FAssets usage is for yield collateral, not loanable credit underwriting. It has **no FDC**, so it cannot bind private TEE eligibility to public cross-chain repayment verification — the exact product flow that defines CreditGate's defensibility. Its deployment claim is unbacked by on-chain transaction evidence, and it publishes zero test claims to reconstruct.
+
+### 3. VeriFlow AI — BUIDL 47271 — "Privacy-Preserving Identity & Verification Platform"
+
+| Dimension | CreditGate | VeriFlow AI |
+|---|---|---|
+| **One-liner** | Confidential credit vault: collateralized USDT0 loans against FXRP, eligibility attested in a TEE then verifiably repaid cross-chain via FDC. | Identity verification platform using Flare FCC. |
+| **Flare primitives used** | **4 of 4** (FAssets + FTSOv2 + FCC + FDC, all load-bearing) | **1 of 4** (FCC only) |
+| **Test count** | **141 tests, 11 suites, 0 failures** | No test claims surfaced |
+| **Live deployment** | FDC fixture + cross-language Go–Solidity tests | Has demo video (Loom) + frontend on Vercel; no smart contract deployment evidence |
+| **Dev team** | — | Solo dev |
+
+**CreditGate advantage:** VeriFlow AI solves identity verification, not credit — a single-primitive (FCC-only) scope. It has no FDC, no FAssets, no FTSOv2, so it cannot verify repayment, collateralize loans, or reference real-time price feeds. CreditGate's cross-language Go–Solidity engineering evidence (EIP-191 signature accepted by `ecrecover` across 2 tests) has no peer here, and its full-stack primitive integration is unmatched.
+
+---
+
+## Why CreditGate Wins
+
+Among Bounty 2 confidential-compute competitors, CreditGate is the **only submission using all 4 Flare primitives** (FAssets as load-bearing collateral, FTSOv2 as the collateral-ratio price feed, FCC for EIP-191 eligibility attestation, and FDC for cross-chain XRPL repayment verification) — and the only one that binds them into a single product flow: TEE-verified eligibility → FDC-verified repayment. Whisper, FlareShield AI, and VeriFlow AI each cover a different sub-problem (settlement, yield, identity) but none reach beyond 3 primitives and none deploy FDC. CreditGate also carries the deepest verifiable engineering evidence in the field: **141 tests across 11 suites (0 failures, 97.75% line coverage)**, including the only cross-language Go–TEE-to-Solidity `ecrecover` compatibility tests and a concrete cross-chain repayment-substitution defense (XRPL address snapshot + 32-byte domain-separated MemoData commitment) that no competitor describes. On every official criterion — Flare integration quality, technical execution, and evidence of new work — CreditGate's breadth, depth, and reconstructibility are unmatched.
