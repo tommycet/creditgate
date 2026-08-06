@@ -34,6 +34,13 @@ contract CreditGateTypes {
     ///         meaningful decay for bidders.
     uint256 public constant AUCTION_DURATION = 1 hours;
 
+    /// @notice Automated liquidation trigger threshold (Aave-style health factor).
+    ///         A FUNDED loan with health factor strictly below this value is
+    ///         auto-liquidatable by `checkAndTriggerLiquidation` / the batch keeper.
+    ///         `0.9e18` ⇒ undercollateralized below 90% triggers liquidation
+    ///         (collateral value < 90% of outstanding debt).
+    uint256 public constant LIQUIDATION_THRESHOLD = 0.9e18;
+
     // ═══════════════════ Enums ═══════════════════
 
     enum LoanState {
@@ -173,6 +180,16 @@ contract CreditGateTypes {
         address winner,
         uint256 winningBid,
         address borrower
+    );
+
+    /// @notice Emitted when the automated liquidation trigger fires for a loan whose
+    ///         health factor dropped below `LIQUIDATION_THRESHOLD`. `healthFactor` and
+    ///         `price` are both 1e18-scaled (the FTSO feed value at trigger time).
+    ///         Emitted BEFORE the `LiquidationAuctionStarted` event for the same loan.
+    event LiquidationTriggered(
+        uint256 indexed loanId,
+        uint256 healthFactor,
+        uint256 price
     );
 
     event OwnershipTransferred(

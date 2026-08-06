@@ -525,28 +525,20 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     // ═══════════════════ Dutch Auction Liquidation ═══════════════════
 
     /// @notice Start a Dutch auction for an undercollateralized or expired loan.
-    /// @dev Anyone can start the auction once the loan deadline has passed.
+    /// @dev Anyone can start the auction once the loan deadline has passed. The price
+    ///         fell below threshold? Use `checkAndTriggerLiquidation` instead — it
+    ///         auto-starts an auction regardless of deadline when the health factor
+    ///         drops under `LIQUIDATION_THRESHOLD`.
     /// @param loanId The loan to liquidate.
     function startLiquidationAuction(uint256 loanId) external payable nonReentrant {
         Loan storage loan = loans[loanId];
         if (loan.state != LoanState.FUNDED) revert NotInAuctionState();
         if (block.timestamp < loan.deadline) revert DeadlineNotPassed();
 
-        // Compute start price = collateral value in USDT0 (18dp)
         (uint256 fxrpPrice, ) =
             FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
         if (fxrpPrice == 0) revert FTSOPriceZero();
-        uint256 startPrice = (loan.collateralAmount * SCALE_TO_18 * fxrpPrice) / 1e18;
-
-        loan.state = LoanState.AUCTION;
-        auctions[loanId] = LiquidationAuction({
-            startPrice: startPrice,
-            startTimestamp: uint64(block.timestamp),
-            highestBidder: address(0),
-            highestBid: 0
-        });
-
-        emit LiquidationAuctionStarted(loanId, loan.borrower, startPrice, uint64(block.timestamp));
+        _startLiquidation(loanId, loan, fxrpPrice);
     }
 
     /// @notice Place a bid on a liquidation auction. The bid must exceed the current auction price.
@@ -625,6 +617,105 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (elapsed >= AUCTION_DURATION) return 0;
         uint256 price = auction.startPrice * (AUCTION_DURATION - elapsed) / AUCTION_DURATION;
         return price;
+    }
+
+    // ═══════════════════ Automated Liquidation Trigger (subagent #54) ═══════════════════
+
+    /// @notice Read the live FTSO XRP/USD price, compute the loan's health factor,
+    ///         and auto-start a Dutch liquidation auction if the factor is strictly
+    ///         below `LIQUIDATION_THRESHOLD` and the loan is FUNDED. A threshold
+    ///         trigger does NOT require the repayment deadline to have passed — the
+    ///         point is to liquidate undercollateralized positions before they go bad.
+    /// @dev    Permissionless: anyone (a keeper bot, the borrower, or the owner) can
+    ///         call. If the loan is healthy the call is a no-op that just returns the
+    ///         current state, so it is safe to call speculatively. Forward `msg.value`
+    ///         to cover any FTSO query fee (currently 0 on Coston2). Reads FTSO
+    ///         exactly once and reuses the price for both the health-factor check and
+    ///         the auction start price (no double oracle read, no double msg.value
+    ///         spend).
+    /// @param  loanId The loan to check and potentially liquidate.
+    /// @return state  The new (or unchanged) loan state after the check.
+    ///                - `AUCTION`  → the trigger fired and an auction was started.
+    ///                - `FUNDED`   → healthy; loan still funded.
+    ///                - other      → loan was not in a FUNDED state to begin with; the
+    ///                              call is a no-op view of the current state.
+    function checkAndTriggerLiquidation(uint256 loanId)
+        external
+        payable
+        nonReentrant
+        returns (LoanState state)
+    {
+        Loan storage loan = loans[loanId];
+        state = loan.state;
+
+        // Only FUNDED loans hold live debt that can be liquidated. Everything else
+        // (IDLE, CLOSED, AUCTION already running, …) is a no-op.
+        if (state != LoanState.FUNDED) return state;
+
+        // Read the live FTSO price once; reuse for health + auction start price.
+        (uint256 xrpUsd18dp, ) =
+            FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
+        // Defensive: a dead feed must never trigger a liquidation.
+        if (xrpUsd18dp == 0) return state;
+
+        uint256 hf = _healthFactorAtPrice(loanId, xrpUsd18dp);
+        if (hf >= LIQUIDATION_THRESHOLD) return state; // healthy
+
+        // Health factor below threshold → emit the trigger event, then start the
+        // auction with the same price (no second oracle read).
+        emit LiquidationTriggered(loanId, hf, xrpUsd18dp);
+        _startLiquidation(loanId, loan, xrpUsd18dp);
+        state = loan.state; // == AUCTION
+    }
+
+    /// @notice Keeper-friendly batch: run `checkAndTriggerLiquidation` logic across
+    ///         many loan ids in ONE call (one transaction, gas-amortised ordering,
+    ///         one reentrancy lock). Useful for a keeper bot that periodically
+    ///         sweeps every active loan id.
+    /// @dev    The FTSO XRP/USD feed is read ONCE for the whole batch and reused for
+    ///         every loan — on Flare all loans share the same XRP/USD price feed, so
+    ///         reading it per-loan would be wasteful. `msg.value` covers the single
+    ///         query fee. Each loan that actually triggers emits `LiquidationTriggered`
+    ///         then `LiquidationAuctionStarted`; healthy or non-FUNDED loans are
+    ///         skipped silently. Does not revert if an individual id is non-FUNDED —
+    ///         the keeper can pass the full active-id list and the batch simply
+    ///         ignores anything that has already closed/auctioned.
+    /// @param  loanIds The loan ids to check.
+    /// @return triggered The subset of `loanIds` for which an auction was started.
+    function batchCheckLiquidation(uint256[] calldata loanIds)
+        external
+        payable
+        nonReentrant
+        returns (uint256[] memory triggered)
+    {
+        if (loanIds.length == 0) return triggered;
+
+        // Single FTSO read for the whole batch.
+        (uint256 xrpUsd18dp, ) =
+            FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
+
+        triggered = new uint256[](loanIds.length); // worst-case sizing
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < loanIds.length; i++) {
+            uint256 loanId = loanIds[i];
+            Loan storage loan = loans[loanId];
+            if (loan.state != LoanState.FUNDED) continue; // nothing to liquidate
+            if (xrpUsd18dp == 0) break; // dead feed → skip the rest, don't revert
+
+            uint256 hf = _healthFactorAtPrice(loanId, xrpUsd18dp);
+            if (hf >= LIQUIDATION_THRESHOLD) continue; // healthy
+
+            emit LiquidationTriggered(loanId, hf, xrpUsd18dp);
+            _startLiquidation(loanId, loan, xrpUsd18dp);
+            triggered[count] = loanId;
+            count++;
+        }
+
+        // Trim to the actual count.
+        assembly {
+            mstore(triggered, count)
+        }
     }
 
     // ═══════════════════ Views ═══════════════════
@@ -710,14 +801,28 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             return type(uint256).max;
         }
 
-        uint256 loanAmount = loan.loanAmount;
-        // Defensive: weird state → nothing owed.
-        if (loanAmount == 0) return type(uint256).max;
-
         // Read live XRP/USD price (18dp). Forward msg.value for the FTSO query fee.
         (uint256 xrpUsd18dp, ) =
             FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
-        // Zero or unavailable feed → do not flag liquidatable; report healthy.
+        return _healthFactorAtPrice(loanId, xrpUsd18dp);
+    }
+
+    /// @dev Pure-ish health-factor core given an already-observed XRP/USD price. No
+    ///      FTSO read (saves one oracle query per call on the trigger/batch path).
+    ///      Returns `type(uint256).max` when there is no live debt or the price is 0
+    ///      (consistent with `getHealthFactor` — never fabricate a liquidatable
+    ///      health factor from a dead feed).
+    function _healthFactorAtPrice(uint256 loanId, uint256 xrpUsd18dp)
+        internal
+        view
+        returns (uint256)
+    {
+        Loan storage loan = loans[loanId];
+        if (loan.state != LoanState.FUNDED && loan.state != LoanState.AUCTION) {
+            return type(uint256).max;
+        }
+        uint256 loanAmount = loan.loanAmount;
+        if (loanAmount == 0) return type(uint256).max;
         if (xrpUsd18dp == 0) return type(uint256).max;
 
         // collateralUsd18 = collateralFxrp6dp * SCALE_TO_18 * xrpUsd18dp / 1e18
@@ -815,6 +920,27 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     }
 
     // ═══════════════════ Internal ═══════════════════
+
+    /// @dev Shared auction-start core for both `startLiquidationAuction` (deadline
+    ///      path) and `checkAndTriggerLiquidation` (health-factor path). Computes the
+    ///      auction start price (= collateral value in USDT0) from the already-read
+    ///      `xrpUsd18dp` price (so the trigger path reads FTSO exactly once),
+    ///      flips the loan to AUCTION state, and emits `LiquidationAuctionStarted`.
+    ///      Caller MUST have already enforced state and (for the deadline path) the
+    ///      timetable, and MUST have validated `xrpUsd18dp != 0`.
+    function _startLiquidation(uint256 loanId, Loan storage loan, uint256 xrpUsd18dp) internal {
+        uint256 startPrice = (loan.collateralAmount * SCALE_TO_18 * xrpUsd18dp) / 1e18;
+
+        loan.state = LoanState.AUCTION;
+        auctions[loanId] = LiquidationAuction({
+            startPrice: startPrice,
+            startTimestamp: uint64(block.timestamp),
+            highestBidder: address(0),
+            highestBid: 0
+        });
+
+        emit LiquidationAuctionStarted(loanId, loan.borrower, startPrice, uint64(block.timestamp));
+    }
 
     /// @dev F3 fix: safe ERC20 approve that resets allowance to 0 first to prevent
     ///      the approval race condition (USDT0 pattern). If there is a non-zero
