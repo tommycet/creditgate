@@ -88,7 +88,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 138 across 11 suites, 0 failures |
+| Tests passing | 141 across 11 suites, 0 failures |
 | Line coverage | 97.75% |
 | Flare primitives used | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
