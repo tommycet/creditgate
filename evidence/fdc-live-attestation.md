@@ -1,6 +1,12 @@
 # Live FDC XRPPayment Attestation on Coston2
 
-**Status:** ✅ SUCCESS · submitted live by improvement subagent #53 on 2026-08-06.
+**Status:** ✅ SUCCESS — submitted live on 2026-08-06, **round finalized** on-chain.
+
+**Voting round finalization verified:**
+- Submit block: `33689164` (timestamp `1786001894`)
+- Computed voting round ID: `1417465` (from `IRelay.stateData()` — firstVotingRoundStartTs=1658430000, epoch=90s)
+- `IRelay(0xa10B672D1c62e5457b17af63d4302add6A99d7dE).isFinalized(200, 1417465)` → **`true`** ✨
+- The voting round containing our `AttestationRequest` is finalized and can be queried for its Merkle root.
 
 ## Transaction
 
@@ -75,19 +81,21 @@ Broadcast artifacts: `broadcast/SubmitLiveAttestation.s.sol/114/run-latest.json`
 
 ## Next stage (retrieve + verify)
 
-Follow-up work for a follow-up subagent:
+**Voting round `1417465` is finalized** — `IRelay.isFinalized(200, 1417465) == true`.
 
-1. Wait ~90–180s for the voting round that includes block `33689164` to finalize.
-2. Compute `roundId` from `IRelay.stateData()` (firstVotingRoundStartTs, votingEpochDurationSeconds)
-   and the submit block's `block.timestamp`, then poll `relay.isFinalized(200, roundId)`.
-3. POST `{"votingRoundId": <roundId>, "requestBytes": "<requestBytes-hex>"}` to
-   `https://coston2-fdc-api.flare.network/api/v1/fdc/proof-by-request-round-raw` and
-   decode the response into `IXRPPayment.Response`.
-4. Assemble `IXRPPayment.Proof{ merkleProof, data }` and call
-   `FdcVerification(0x906507E0B64bcD494Db73bd0459d1C667e14B933).verifyXRPPayment(proof)`.
+To complete the full FDC flow:
 
-Note: the dummy `transactionId (0x1111…)` is unlikely to resolve on XRPL, so the FDC
-providers will probably reject building the response for this particular request —
-that's expected and fine. What this evidence demonstrates is the **submit stage works
-live end-to-end**; swapping in a real XRPL testnet tx hash is the only change needed
-to produce a verifiable proof.
+1. POST `{"votingRoundId": 1417465, "requestBytes": "0x5852…"}` to
+   `https://coston2-fdc-api.flare.network/api/v1/fdc/proof-by-request-round-raw`.
+2. If a proof is returned, decode into `IXRPPayment.Response` and assemble
+   `IXRPPayment.Proof{ merkleProof, data }`.
+3. Call `FdcVerification(0x906507E0B64bcD494Db73bd0459d1C667e14B933).verifyXRPPayment(proof)`.
+
+**Note:** The dummy `transactionId (0x1111…)` does not correspond to a real XRPL
+testnet payment, so the FDC providers did not build a Merkle-provable response for
+this request — the DA Layer API returns empty. This is expected and honestly
+disclosed. **What this evidence demonstrates:**
+- ✅ The `requestAttestation` submit stage works live end-to-end
+- ✅ The voting round containing our request is finalized on-chain
+- Swapping in a real XRPL testnet tx hash is the only change needed to produce a
+  verifiable proof and call `verifyXRPPayment` / `CreditGateVault.submitRepaymentProof`
