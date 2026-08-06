@@ -1,0 +1,27 @@
+{
+  "xrplNetwork": "testnet",
+  "xrplJsonRpcUrl": "https://s.altnet.rippletest.net:51234/",
+  "loanCommitmentMemo": "CREDITGATE-LOAN-REPAYMENT-FDC-VERIFY-2026-08-06",
+  "memoTypeHex": "6c6f616e2d636f6d6d69746d656e74",
+  "sender": {
+    "classicAddress": "rPnBvQhLnPJbxBfXJDWgc44D48JHw32gj5",
+    "publicKey": "ED9C09F4F35141550EF5060CF017C905DBD0FFFF4C899F094A50592D44C4B7ABF1",
+    "seed": "sEd7XTD8axxcpWtK22oUjFYKR8Md5cN",
+    "dropsBalance": 100000000
+  },
+  "receiver": {
+    "classicAddress": "rrpBcxxoHZuBWSTT2ZfCwHkQBBdfnLqgbK",
+    "publicKey": "ED398DBE5CB26DA2B20C7A1ACE7C4E4AD867BF0CDCE540D1468767099BA73B0E4E",
+    "seed": "sEdTu6ohAESx91Hjjvft7Ke1EVgoFAN",
+    "dropsBalance": 100000000
+  },
+  "payment": {
+    "amountDrops": "1000000",
+    "amountXrp": 1,
+    "txHashHex": "B9F346A3F25581FBB561842BF5D3C5C91B9909CF00D13DEC7E7939B5C6347420",
+    "txHashBytes32": "0xb9f346a3f25581fbb561842bf5d3c5c91b9909cf00d13dec7e7939b5c6347420",
+    "txHashBytes": 32,
+    "status": "tesSUCCESS",
+    "ledgerIndex": 19689886
+  }
+}
