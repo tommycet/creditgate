@@ -100,6 +100,28 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 | Bounty | Confidential Compute Apps (Bounty 2) |
 | Network | Coston2 (chain ID 114) |
 
+## What Was Newly Built During the Flare Summer Signal Program
+
+### Pre-existing baseline
+
+- The concept of FXRP-backed lending and the basic vault contract (deposit, draw, repay) existed before the hackathon as a prototype.
+
+### Built/Improved during the hackathon program
+
+1. **Dutch auction liquidation mechanism** — descending-price auction over 24h for under-collateralized loans
+2. **5% APR interest accrual** — pro-rata interest on outstanding loans, computed at draw/repay
+3. **Health factor** — real-time position health via FTSO price, triggers liquidation below 0.9
+4. **FCC credit bureau in Go TEE** — EIP-191 signed eligibility attestations from a simulated TEE
+5. **Automated FTSO-threshold liquidation trigger** — `checkAndTriggerLiquidation` + `batchCheckLiquidation` for keepers
+6. **Per-collateral LTV ratio configuration** — `registerCollateral`, `updateLTV`, `getMaxLoanAmount`
+7. **8 invariant/fuzz tests** — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality
+8. **Live deployment on Coston2** — vault at `0x5e74d...`, 5 FXRP collateral deposited, FTSO price feed live
+9. **FDC attestation submitted live** — tx `0x9bc263fe...`, voting round 1417465 finalized on-chain
+10. **Source verified on Blockscout** — judges can inspect the verified Solidity source
+11. **3 adversarial security audits** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed
+12. **141-test Foundry suite across 11 suites** — grew from 91 to 141 during the program
+13. **Frontend /docs section** — consolidated evidence and reports into browseable Next.js pages
+
 ## Team
 
 **Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (141 tests / 11 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
