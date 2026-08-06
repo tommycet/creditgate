@@ -41,7 +41,7 @@ type errorResponse struct {
 // eligibilityResponse wraps a handler.EvaluationResult for the GET endpoint,
 // adding the address back so the response is self-describing.
 type eligibilityResponse struct {
-	Address  string                  `json:"address"`
+	Address string                   `json:"address"`
 	Found   bool                     `json:"found"` // false if the address has never been evaluated
 	Result  handler.EvaluationResult `json:"result"`
 }

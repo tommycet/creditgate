@@ -33,29 +33,29 @@ import (
 
 // OPType / OPCommand constants — must match the Solidity InstructionSender.
 const (
-	OpTypeCredit       = "CREDIT"
-	OpCommandEvaluate  = "EVALUATE"
-	OpCommandRegister  = "REGISTER_XRPL"
+	OpTypeCredit      = "CREDIT"
+	OpCommandEvaluate = "EVALUATE"
+	OpCommandRegister = "REGISTER_XRPL"
 )
 
 // EvaluationInput is the ABI-decoded instruction payload from the
 // CreditGateInstructionSender contract.
 type EvaluationInput struct {
-	OpCommand        string `json:"opCommand"`
-	Borrower         string `json:"borrower"`         // EVM address (hex)
-	CollateralAmount string `json:"collateralAmount"` // FXRP 6dp as decimal string
-	RequestedLoan    string `json:"requestedLoan"`    // USDT0 6dp as decimal string
-	Expiry           string `json:"expiry"`           // UNIX seconds
-	Nonce            string `json:"nonce"`            // eligibility nonce
+	OpCommand         string `json:"opCommand"`
+	Borrower          string `json:"borrower"`          // EVM address (hex)
+	CollateralAmount  string `json:"collateralAmount"`  // FXRP 6dp as decimal string
+	RequestedLoan     string `json:"requestedLoan"`     // USDT0 6dp as decimal string
+	Expiry            string `json:"expiry"`            // UNIX seconds
+	Nonce             string `json:"nonce"`             // eligibility nonce
 	RevocationVersion string `json:"revocationVersion"` // current revocation version
-	XrplAddress      string `json:"xrplAddress"`      // optional, for REGISTER_XRPL
+	XrplAddress       string `json:"xrplAddress"`       // optional, for REGISTER_XRPL
 }
 
 // EvaluationResult is returned to the proxy; the borrower polls it.
 type EvaluationResult struct {
-	Eligible    bool   `json:"eligible"`
-	Limit       string `json:"limit"` // approved USDT0 6dp
-	Reason      string `json:"reason"`
+	Eligible    bool         `json:"eligible"`
+	Limit       string       `json:"limit"` // approved USDT0 6dp
+	Reason      string       `json:"reason"`
 	Attestation *Attestation `json:"attestation,omitempty"`
 }
 
@@ -90,12 +90,12 @@ var domainSeparator = crypto.Keccak256Hash([]byte("CREDITGATE_ELIGIBILITY_V1"))
 
 // Handler evaluates credit instructions.
 type Handler struct {
-	signingKey    *ecdsa.PrivateKey
-	authorityAddr common.Address
+	signingKey         *ecdsa.PrivateKey
+	authorityAddr      common.Address
 	collateralRatioBps *big.Int // e.g. 15000
-	xrpUsd18dp    *big.Int // XRP/USD in 18 decimals (e.g. 2.5e18)
+	xrpUsd18dp         *big.Int // XRP/USD in 18 decimals (e.g. 2.5e18)
 	// Simulated borrower limits; in production the TEE holds private data.
-	limits map[string]*big.Int
+	limits  map[string]*big.Int
 	revoked map[string]bool
 	// lastAttestation stores the most recent EvaluationResult per borrower
 	// (lowercase address) so /eligibility/:address can serve it without
@@ -123,13 +123,13 @@ func NewHandler() (*Handler, error) {
 		xrpPrice.SetString(p, 10)
 	}
 	return &Handler{
-		signingKey:        key,
-		authorityAddr:     crypto.PubkeyToAddress(key.PublicKey),
+		signingKey:         key,
+		authorityAddr:      crypto.PubkeyToAddress(key.PublicKey),
 		collateralRatioBps: ratio,
-		xrpUsd18dp:        xrpPrice,
-		limits:            map[string]*big.Int{},
-		revoked:           map[string]bool{},
-		lastResult:        map[string]EvaluationResult{},
+		xrpUsd18dp:         xrpPrice,
+		limits:             map[string]*big.Int{},
+		revoked:            map[string]bool{},
+		lastResult:         map[string]EvaluationResult{},
 	}, nil
 }
 
@@ -181,8 +181,8 @@ func (h *Handler) Action(raw json.RawMessage) (json.RawMessage, error) {
 //     Mirrors CreditGateVault.drawLoan() exactly so the TEE attestation
 //     can never approve something the vault would revert:
 //
-//       collateralUsd18 = collateral(6dp) * 1e12 * xrpUsd18dp(18dp) / 1e18
-//       require collateralUsd18 * 10000 >= loanUsd18 * collateralRatioBps
+//     collateralUsd18 = collateral(6dp) * 1e12 * xrpUsd18dp(18dp) / 1e18
+//     require collateralUsd18 * 10000 >= loanUsd18 * collateralRatioBps
 //
 //     With the defaults (xrpUsd=$2.50, ratio=150% i.e. 15000 bps) a
 //     borrower asking for 1,000 USDT0 needs ≥ 600 FXRP posted. Falling
