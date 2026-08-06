@@ -12,7 +12,7 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `src/mocks/` — MockERC20, MockFtsoV2, MockFdcVerification
 - `test/CreditGateVault.t.sol` — 69 unit tests
 - `test/CreditGateVault.fdc-fixture.t.sol` — 4 FDC lifecycle tests
-- `test/CreditGateVault.invariant.t.sol` — 5 invariant/fuzz tests
+- `test/CreditGateVault.invariant.t.sol` — 8 invariant/fuzz tests
 - `test/CreditGateVault.go-tee-compat.t.sol` — 2 cross-language EIP-191 tests
 - `test/CreditGateVault.malicious-reentrancy.t.sol` — 1 truly-malicious-token reentrancy attack test
 - `test/CreditGateVault.reentrancy.t.sol` — 2 reentrancy / vault-solvency / future-FTSO-edge tests
@@ -29,7 +29,7 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `DEMO.md` — 90-second demo script
 
 ## Current State (141 tests, 11 suites, 0 failures)
-- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 11 LTV-config + 9 liquidation-trigger
+- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 8 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 11 LTV-config + 9 liquidation-trigger
 - **Newer features added beyond the M1 security sweep** (grew the suite 91 → 141 tests / 7 → 11 suites):
   1. **Dutch auction liquidation** — when `getHealthFactor` drops below 1.0, anyone can start a linear-decay Dutch auction (`startLiquidationAuction` → `bidOnLiquidation` → `finalizeAuction`); surplus refunds the borrower.
   2. **Interest rate mechanism** — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`), enforced in the FDC repayment check so MemoData must cover principal + accrued interest; `InterestAccrued` emitted on close.

@@ -72,7 +72,7 @@ creditgate/
 ├── test/
 │   ├── CreditGateVault.t.sol                  # 69 unit tests
 │   ├── CreditGateVault.fdc-fixture.t.sol      # 4 FDC lifecycle tests
-│   ├── CreditGateVault.invariant.t.sol        # 5 invariant / fuzz tests
+│   ├── CreditGateVault.invariant.t.sol        # 8 invariant / fuzz tests
 │   ├── CreditGateVault.go-tee-compat.t.sol    # 2 cross-language EIP-191 tests
 │   ├── CreditGateVault.malicious-reentrancy.t.sol  # 1 malicious-token attack test
 │   ├── CreditGateVault.reentrancy.t.sol        # 2 reentrancy / solvency / FTSO-edge
