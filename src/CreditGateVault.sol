@@ -184,12 +184,14 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     function revokeEligibility(address borrower) external onlyOwner {
         eligibilityRevoked[borrower] = true;
         // Bump revocation version (cap at max uint8 to avoid overflow wrap).
+        // G5 (gas-audit): unchecked — guard already prevents overflow.
         if (borrowerRevocationVersion[borrower] < type(uint8).max) {
-            borrowerRevocationVersion[borrower] += 1;
+            unchecked { borrowerRevocationVersion[borrower] += 1; }
         }
         // M2 fix: rotate the nonce so outstanding attestations are invalidated.
+        // G6 (gas-audit): unchecked — guard already prevents overflow.
         if (borrowerNonce[borrower] < type(uint32).max) {
-            borrowerNonce[borrower] += 1;
+            unchecked { borrowerNonce[borrower] += 1; }
         }
     }
 
@@ -538,7 +540,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         if (loan.state != LoanState.FUNDED) {
             revert InvalidLoanState(loan.state, LoanState.FUNDED);
         }
-        require(loan.borrower == msg.sender, "NotBorrower");
+        // G7 (gas-audit): cache `borrower` once — reused 3× below (require, transfer, event).
+        address borrower = loan.borrower;
+        require(borrower == msg.sender, "NotBorrower");
 
         // Anti-replay: each FDC proof can only be consumed once.
         bytes32 proofHash = keccak256(abi.encode(proof));
@@ -602,10 +606,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         loan.collateralAmount = 0;
         loan.state = LoanState.CLOSED;
 
-        fxrp.safeTransfer(loan.borrower, collateralReleased);
+        fxrp.safeTransfer(borrower, collateralReleased);
 
         emit RepaymentProofSubmitted(loanId, proofHash, resp.receivedAmount);
-        emit LoanClosed(loanId, loan.borrower, collateralReleased);
+        emit LoanClosed(loanId, borrower, collateralReleased);
     }
 
     /// @notice Liquidate a funded loan whose repayment deadline has passed. Seizes the
@@ -819,6 +823,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         triggered = new uint256[](loanIds.length); // worst-case sizing
         uint256 count = 0;
 
+        // G8 (gas-audit): unchecked — count bounded by loanIds.length, overflow impossible.
         for (uint256 i = 0; i < loanIds.length; i++) {
             uint256 loanId = loanIds[i];
             Loan storage loan = loans[loanId];
@@ -831,7 +836,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             emit LiquidationTriggered(loanId, hf, xrpUsd18dp);
             _startLiquidation(loanId, loan, xrpUsd18dp);
             triggered[count] = loanId;
-            count++;
+            unchecked { count++; }
         }
 
         // Trim to the actual count.
@@ -1086,7 +1091,8 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             totalCollateral += loan.collateralAmount;
             totalBorrowed += loan.loanAmount;
             if (loan.state == LoanState.FUNDED) {
-                activeLoans += 1;
+                // G9 (gas-audit): unchecked — activeLoans bounded by len, overflow impossible.
+                unchecked { activeLoans += 1; }
                 totalInterestOwed += getInterestOwed(ids[i]);
             }
         }
