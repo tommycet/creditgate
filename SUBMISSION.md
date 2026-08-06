@@ -2,7 +2,11 @@
 
 ## Bounty
 
-**Bounty 2: Confidential Compute Apps ($6,000)** — Flare Summer Signal (DoraHacks, Aug 14 2026). Prize pool $6,000 split as $4K 1st / $2K 2nd. The bounty rewards applications that use Flare Confidential Compute (FCC) to deliver a meaningful, privacy-preserving product on Flare.
+**Bounty 1: Interoperable Asset Products ($6,000)** — CreditGate uses FAssets (FXRP collateral) + FDC (XRPL repayment verification) to enable cross-chain interoperable asset products. The vault locks FXRP on Flare and verifies repayment on XRPL via FDC — a genuine cross-chain asset flow.
+
+**Bounty 2: Confidential Compute Apps ($6,000)** — CreditGate uses Flare Confidential Compute (FCC) to evaluate credit eligibility privately inside a TEE, producing a single EIP-191 signed attestation verifiable by Solidity `ecrecover`. The privacy guarantee: the TEE inputs and decision never leave the enclave.
+
+**Primary target: Bounty 2** (FCC is the core differentiator). **Secondary target: Bounty 1** (FXRP + FDC cross-chain flow qualifies). Flare Summer Signal (DoraHacks, Aug 14 2026).
 
 ## One-Line Description
 
@@ -97,7 +101,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 | Invariant/fuzz tests | 8 (256 runs each — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality) |
 | FDC lifecycle tests | 4 (realistic XRPL proof verified) |
 | Edge-case tests | 15 (border ratios, double-request, expired attestation, security boundaries) |
-| Bounty | Confidential Compute Apps (Bounty 2) |
+| Bounty | Confidential Compute Apps (Bounty 2) + Interoperable Asset Products (Bounty 1) |
 | Network | Coston2 (chain ID 114) |
 
 ## What Was Newly Built During the Flare Summer Signal Program
