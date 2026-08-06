@@ -142,7 +142,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 ## Repository
 
-**GitHub:** https://github.com/metaverseguru/creditgate
+**GitHub:** https://github.com/tommycet/creditgate
 *(If the repo is set to private at judging time, contact via DoraHacks — it will be made public for the submission window. The repository contains the full Solidity vault, Foundry test suite (`forge test` → 141 tests / 11 suites / 0 failures), FCC Go handler, and Next.js frontend.)*
 
 **Quick start:**

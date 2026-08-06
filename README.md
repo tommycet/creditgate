@@ -220,7 +220,7 @@ go run .   # listens on :8080
 
 ## Repository
 
-**GitHub:** https://github.com/metaverseguru/creditgate *(made public for the Flare Summer Signal submission window; if private at judging time, contact via DoraHacks)*
+**GitHub:** https://github.com/tommycet/creditgate *(made public for the Flare Summer Signal submission window; if private at judging time, contact via DoraHacks)*
 
 ## License
 
