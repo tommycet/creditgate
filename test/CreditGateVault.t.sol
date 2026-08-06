@@ -547,7 +547,24 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
     }
 
     function test_drawLoan_revertsIfInsufficientCollateral() public {
-        uint256 loanId = _setupLoanToEligible();
+        // Set up a loan with a high attestation limit so the collateral check fires first
+        vm.prank(borrower1);
+        uint256 loanId = vault.depositCollateral(DEPOSIT_100_FXRP);
+        vm.prank(borrower1);
+        vault.requestEligibility(loanId);
+        uint64 expiry = uint64(block.timestamp + 1 hours);
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(
+            borrower1, 500e18, expiry, 0, 0
+        );
+        vm.prank(borrower1);
+        vault.submitEligibility(loanId, CreditGateTypes.EligibilityAttestation({
+            borrower: borrower1,
+            limit: 500e18,
+            expiry: expiry,
+            nonce: 0,
+            revocationVersion: 0,
+            v: v, r: r, s: s
+        }));
 
         // Try to borrow way more than collateral ratio allows
         // 100 FXRP at $2.50 = $250. At 150% ratio, max loan = $250/1.5 = $166.67

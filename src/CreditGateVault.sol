@@ -128,6 +128,16 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         paused = false;
     }
 
+    /// @notice Transfer ownership of the vault to a new address.
+    /// @dev    Only callable by `owner`. Emits {OwnershipTransferred}.
+    /// @param  newOwner The address to transfer ownership to.
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "ZeroAddressOwner");
+        address previousOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
     /// @notice Mark a borrower's eligibility as revoked. Bumps revocation version so any
     ///         outstanding eligibility attestation with an older version is rejected.
     /// @param  borrower The borrower whose eligibility is being revoked.
@@ -288,6 +298,7 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
         // Success → ELIGIBLE. Store limit / expiry on the loan.
         loan.eligibilityExpiry = attestation.expiry;
+        loan.attestationLimit = attestation.limit; // F1: store TEE attestation limit
         loan.state = LoanState.ELIGIBLE;
 
         emit EligibilitySubmitted(loanId, borrower, attestation.limit, attestation.expiry);
@@ -316,6 +327,9 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         address borrower = loan.borrower;
         require(borrower == msg.sender, "NotBorrower");
         if (loanAmount == 0) revert ZeroAmount();
+
+        // F1 fix: enforce TEE attestation limit — loan cannot exceed what the TEE approved.
+        if (loanAmount > loan.attestationLimit) revert ExceedsAttestationLimit();
 
         // L1 fix: re-check eligibility expiry at draw time (was only checked at submission)
         if (uint64(block.timestamp) >= loan.eligibilityExpiry) {
@@ -504,6 +518,23 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     }
 
     // ═══════════════════ Internal ═══════════════════
+
+    /// @dev F3 fix: safe ERC20 approve that resets allowance to 0 first to prevent
+    ///      the approval race condition (USDT0 pattern). If there is a non-zero
+    ///      allowance, an attacker can front-run a new approve call to steal the
+    ///      old allowance. Resetting to 0 first eliminates this attack vector.
+    /// @param token The ERC20 token to approve.
+    /// @param spender The address to approve.
+    /// @param amount The amount to approve.
+    function _safeApprove(IERC20 token, address spender, uint256 amount) internal {
+        uint256 currentAllowance = token.allowance(address(this), spender);
+        if (currentAllowance != 0) {
+            token.approve(spender, 0);
+        }
+        if (amount != 0) {
+            token.approve(spender, amount);
+        }
+    }
 
     /// @dev internal `view` (not `pure`) because it reads `address(this)`.
     function _computeCommitment(

@@ -49,6 +49,7 @@ contract CreditGateTypes {
         bytes32 expectedCommitment;        // keccak256 commitment for FDC memo binding
         LoanState state;
         bytes32 borrowerSourceAddressHash; // keccak256(bytes(borrowerXRPLAddress))
+        uint256 attestationLimit;          // F1: max USDT0 from TEE attestation (6 dp)
     }
 
     struct EligibilityAttestation {
@@ -121,6 +122,11 @@ contract CreditGateTypes {
         uint256 amount
     );
 
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
     // ═══════════════════ Custom Errors ═══════════════════
 
     error ZeroAmount();
@@ -144,4 +150,5 @@ contract CreditGateTypes {
     error DeadlineNotPassed();
     error XRPLAddressNotRegistered();
     error RepaymentReceiverMismatch(bytes32 expected, bytes32 provided);
+    error ExceedsAttestationLimit();
 }

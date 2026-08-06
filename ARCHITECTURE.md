@@ -157,6 +157,8 @@ Response (JSON):
   }
 ```
 
+> The returned `"limit"` is the **credit-bureau-adjusted** approved amount, i.e. `min(requested, cap) × (creditScore / 850)` (capped at 1.0) — not necessarily equal to `"requestedLoan"`. The adjustment is the "Mock Credit Bureau (Hackathon Implementation)" step described below.
+
 ### Evaluation pipeline (handler.go:133-185)
 
 1. **Input validation** — non-zero borrower, non-negative collateral/loan, parseable expiry/nonce
