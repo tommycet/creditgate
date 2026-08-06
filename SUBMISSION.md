@@ -94,7 +94,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
 | Go-TEE cross-language tests | 2 (Go signature → Solidity `ecrecover`) |
 | Reentrancy attack tests | 1 (malicious FXRP token blocked) |
-| Invariant/fuzz tests | 5 (256 runs each — FXRP conservation + USDT0 solvency) |
+| Invariant/fuzz tests | 8 (256 runs each — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality) |
 | FDC lifecycle tests | 4 (realistic XRPL proof verified) |
 | Edge-case tests | 15 (border ratios, double-request, expired attestation, security boundaries) |
 | Bounty | Confidential Compute Apps (Bounty 2) |
