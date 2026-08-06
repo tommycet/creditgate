@@ -10,13 +10,15 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `src/CreditGateVault.sol` — Main vault (state machine, collateral, loans, FDC verification)
 - `src/CreditGateTypes.sol` — Types, errors, events, constants
 - `src/mocks/` — MockERC20, MockFtsoV2, MockFdcVerification
-- `test/CreditGateVault.t.sol` — 62 unit tests
+- `test/CreditGateVault.t.sol` — 69 unit tests
 - `test/CreditGateVault.fdc-fixture.t.sol` — 4 FDC lifecycle tests
 - `test/CreditGateVault.invariant.t.sol` — 5 invariant/fuzz tests
 - `test/CreditGateVault.go-tee-compat.t.sol` — 2 cross-language EIP-191 tests
 - `test/CreditGateVault.malicious-reentrancy.t.sol` — 1 truly-malicious-token reentrancy attack test
 - `test/CreditGateVault.reentrancy.t.sol` — 2 reentrancy / vault-solvency / future-FTSO-edge tests
 - `test/CreditGateVault.edge-cases.t.sol` — 15 edge-case tests (border collateral ratios, double-request rejection, expired-attestation handling, security boundaries, etc.)
+- `test/CreditGateVault.auction.t.sol` — 5 Dutch auction liquidation tests (startLiquidationAuction / bidOnLiquidation / finalizeAuction, linear price decay)
+- `test/CreditGateVault.views.t.sol` — 15 health-factor + loan/portfolio summary view tests (getHealthFactor / getLoanSummary / getPortfolioSummary, interest-aware aggregation)
 - `script/DeployCreditGate.s.sol` — Deployment script
 - `script/fdcExample/` — FDC request/verify scripts
 - `fcc/credit-extension/extension/` — Go FCC handler (credit evaluation + signing, /health endpoint, structured logging)
@@ -26,15 +28,21 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `ARCHITECTURE.md` — EIP-191 payload, FDC flow, Flare primitive addresses
 - `DEMO.md` — 90-second demo script
 
-## Current State (91 tests, 7 suites, 0 failures)
-- 62 unit + 4 FDC fixture + 5 invariant/fuzz + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 15 edge-case (incl. 5 new security-boundary tests added by subagent #37)
-- Frontend builds (6 routes prerendered); landing page stats badges, FCC attestation submission panel, liquidate button, full-state color badges, error banner, token balances
+## Current State (118 tests, 9 suites, 0 failures)
+- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge
+- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 118 tests / 7 → 9 suites):
+  1. **Dutch auction liquidation** — when `getHealthFactor` drops below 1.0, anyone can start a linear-decay Dutch auction (`startLiquidationAuction` → `bidOnLiquidation` → `finalizeAuction`); surplus refunds the borrower.
+  2. **Interest rate mechanism** — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`), enforced in the FDC repayment check so MemoData must cover principal + accrued interest; `InterestAccrued` emitted on close.
+  3. **Health factor & loan/portfolio views** — `getHealthFactor` (collateral×1e18 / (principal+interest), gates liquidation), `getLoanSummary`, `getPortfolioSummary`.
+  4. **Mock credit bureau** — FCC TEE consults a reproducible mock bureau (score + attestation-based eligibility) instead of a centralized bureau; only the signed EIP-191 attestation crosses the trust boundary. See `ARCHITECTURE.md` § "Credit evaluation model".
+- Frontend builds (6 routes prerendered); landing page stats badges, FCC attestation submission panel, liquidate button, auction panel, health-factor readout, full-state color badges, error banner, token balances
 - FCC Go handler ships `/health` endpoint + structured logging + EIP-191 signing accepted by Solidity `ecrecover`
 - Security audit: PASS-WITH-NOTES (all fixes applied: M1/M2/L1/L2/L4/L5)
 - Gas audit completed; top-3 audit findings applied (subagent 7 verdict written)
 - USDT0 18-decimal correction applied across all test suites (was 6-decimal assumption; USDT0 on Coston2 is 18 decimals)
 - Coston2 primitive addresses verified live 2026-08-05; `SafeERC20` import + env-var handling fixed in deploy script
 - 6 planning verdicts: fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit
+- Judge sim v4 verdict: **9.0/10** (up from 7.4 baseline)
 - Deploy address: NOT YET DEPLOYED (faucet address 0x5a3969F3767Cde96D662A94cAa79779073F80A0c pending funding)
 
 ## Known Gaps (from judge sim 7.4/10 + competitive positioning)
@@ -54,6 +62,6 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - Chain ID: 114, RPC: https://coston2-api.flare.network/ext/C/rpc
 
 ## Build Commands
-- `forge test` — run all 91 tests across 7 suites
+- `forge test` — run all 118 tests across 9 suites
 - `cd frontend && npm run build` — build frontend
 - `cd fcc/credit-extension/extension && go run .` — start FCC handler (:8080, /health + /action)

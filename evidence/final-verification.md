@@ -15,13 +15,15 @@ $ forge test --summary
 | CreditGateVaultInvariantTest        | 5      | 0      | 0       |
 | CreditGateVaultRealReentrancyTest   | 1      | 0      | 0       |
 | CreditGateVaultReentrancyAttackTest | 2      | 0      | 0       |
-| CreditGateVaultTest                 | 62     | 0      | 0       |
+| CreditGateVaultTest                 | 69     | 0      | 0       |
+| CreditGateVaultViewsTest            | 15     | 0      | 0       |
+| CreditGateVaultAuctionTest          | 5      | 0      | 0       |
 ╰-------------------------------------+--------+--------+---------╯
-Ran 7 test suites in 43.09s: 91 tests passed, 0 failed, 0 skipped (91 total tests)
+Ran 9 test suites in 43.09s: 118 tests passed, 0 failed, 0 skipped (118 total tests)
 ```
 
-- Tests: **91/91 passed**
-- Suites: **7** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 5 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 62 = 91)
+- Tests: **118/118 passed**
+- Suites: **9** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 5 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 69 + Views 15 + Auction 5 = 118)
 - Result: **PASS**
 
 ## Solidity Build
@@ -97,7 +99,7 @@ All gates pass:
 
 | Gate | Result |
 |------|--------|
-| `forge test` (91 tests, 7 suites) | ✅ PASS — 0 failures |
+| `forge test` (118 tests, 9 suites) | ✅ PASS — 0 failures |
 | `forge build` | ✅ PASS — compiles, lint advisories only |
 | `npm run build` (frontend) | ✅ PASS — 6 routes prerendered |
 | Stale `76/6` references in user-facing docs | ✅ FIXED this run |

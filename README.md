@@ -11,7 +11,7 @@ Billions of dollars of XRP sit idle on Flare as FXRP collateral — locked, prod
 ## Quick Start (3 commands)
 
 ```bash
-# 1. Contracts — 91 tests across 7 suites, 0 failures
+# 1. Contracts — 118 tests across 9 suites, 0 failures
 forge test
 
 # 2. Frontend — Next.js + wagmi + RainbowKit (http://localhost:3000)
@@ -36,7 +36,7 @@ Competitive intel gathered from the live DoraHacks BUIDL listing (see `planning/
 | 2 | **Only submission binding FCC (private eligibility) → FDC (public cross-chain verification)** in a single product flow. | `ARCHITECTURE.md` + state machine |
 | 3 | **Real reentrancy attack test** — malicious FXRP token invokes `depositCollateral` from `transferFrom`; blocked by `ReentrancyGuard`. | `test/CreditGateVault.malicious-reentrancy.t.sol` |
 | 4 | **Go-TEE ↔ Solidity cross-language compatibility** — 2 tests prove the Go handler's EIP-191 signature is accepted by Solidity `ecrecover`. No competitor surfaces this. | `test/CreditGateVault.go-tee-compat.t.sol` |
-| 5 | **91 tests / 7 suites + invariant fuzz + security audit clean** — deepest *verifiable* engineering evidence among named competitors; all M1/M2/L1/L2/L4/L5 findings fixed. | `planning/security-audit/verdict.md` (PASS) + `forge test` |
+| 5 | **118 tests / 9 suites + invariant fuzz + security audit clean** — deepest *verifiable* engineering evidence among named competitors; all M1/M2/L1/L2/L4/L5 findings fixed. | `planning/security-audit/verdict.md` (PASS) + `forge test` |
 | 6 | **Cross-chain repayment-substitution defense** — per-loan XRPL address snapshot + 32-byte domain-separated MemoData commitment. None of the competitors describe this. | `src/CreditGateVault.sol` + `ARCHITECTURE.md` |
 
 ---
@@ -93,8 +93,16 @@ Full design in [`ARCHITECTURE.md`](ARCHITECTURE.md) (EIP-191 payload layout, FDC
 - XRPL address binding — borrower registers their XRPL r-address; FDC repayment proof must match (prevents repayment substitution)
 - 32-byte XRPL MemoData commitment binding — domain-separated, loan-specific
 - FDC repayment proof verification — Status, amount, memo, receiver, and source checks
-- Foundry test suite — **91 tests across 7 suites** (62 unit + 4 FDC lifecycle fixture + 5 invariant/fuzz + 2 Go-TEE cross-language + 1 truly-malicious-token reentrancy + 2 reentrancy/vault-solvency/FTSO-edge + 15 edge-case boundary tests: border collateral ratios, double-request rejection, expired attestation handling, security boundaries)
+- Foundry test suite — **118 tests across 9 suites** (69 unit + 15 health-factor/view + 15 edge-case boundary + 5 Dutch auction liquidation + 5 invariant/fuzz + 4 FDC lifecycle fixture + 2 Go-TEE cross-language + 1 truly-malicious-token reentrancy + 2 reentrancy/vault-solvency/FTSO-edge)
 - React lifecycle UI — judge-facing demo interface
+
+### Newer features added beyond the M1 milestone
+These four capabilities were layered on after the initial security sweep, growing the suite from 91 → 118 tests / 7 → 9 suites. All are exercised by the test suite and reflected on the frontend.
+
+- **Dutch auction liquidation** (`CreditGateVault.auction.t.sol`, 5 tests) — when a loan's health factor drops below 1.0, anyone can call `startLiquidationAuction(loanId)` to begin a linear-decay Dutch auction. `bidOnLiquidation` accepts decreasing-denominated bids and `finalizeAuction` settles, repaying the lender and refunding any surplus to the borrower. Penalties are bounded; price decays monotonically from a ceiling to a floor.
+- **Interest rate mechanism** (subagent #47, folded into unit + views suites) — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`). The repayment check now requires the XRPL MemoData to cover **principal + accrued interest**, with `InterestAccrued` emitted on close. Loans still in `FUNDED` state accrue; repaid/defaulted/auctioning loans do not.
+- **Health factor & loan/portfolio views** (`CreditGateVault.views.t.sol`, 15 tests, subagent #48) — `getHealthFactor(loanId)` returns a `collateralValueUsd18 / (principal + interest)` ratio (in 1e18 scale) used to gate liquidation; `getLoanSummary` and `getPortfolioSummary` expose per-loan and per-borrower snapshots, summing accrued interest across active loans. `type(uint256).max` is returned for under-collateralized-safe states.
+- **Mock credit bureau** (`ARCHITECTURE.md` § "Credit evaluation model") — the FCC handler's TEE now consults a mock credit bureau (on-chain-score + attestation-based eligibility) rather than a single signature-based check, so the off-chain evaluation is reproducible for judges without relying on a centralized credit bureau. The bureau output is never exposed in cleartext; only the signed EIP-191 attestation crosses the trust boundary.
 
 **Existing Flare primitives (not claimed as new):** FCC proxy, FDC verifier, FTSO feeds, FXRP token, FDC request fee configuration. See deployment table above for addresses and live verification date.
 
@@ -106,13 +114,15 @@ Every claim above is backed by a file a judge can open and read. Six planning re
 
 | File | What it proves |
 |------|----------------|
-| `test/CreditGateVault.t.sol` | 62 unit tests — all state transitions and error paths |
+| `test/CreditGateVault.t.sol` | 69 unit tests — all state transitions, error paths, and interest-accrual math |
 | `test/CreditGateVault.fdc-fixture.t.sol` | 4 FDC lifecycle tests — realistic XRPL proof verified by vault |
 | `test/CreditGateVault.invariant.t.sol` | 5 invariant/fuzz tests — FXRP conservation, USDT0 solvency, state ordering |
 | `test/CreditGateVault.go-tee-compat.t.sol` | 2 cross-language tests — Go TEE signature accepted by Solidity `ecrecover` |
 | `test/CreditGateVault.malicious-reentrancy.t.sol` | 1 truly-malicious-token test — real malicious FXRP callback blocked by `ReentrancyGuard` |
 | `test/CreditGateVault.reentrancy.t.sol` | 2 reentrancy/solvency/FTSO-edge tests — future-timestamp FTSO + insufficient-USDT0 draw reverted, vault solvency |
 | `test/CreditGateVault.edge-cases.t.sol` | 15 edge-case boundary tests — border collateral ratios, double-request rejection, expired-attestation handling, security boundaries |
+| `test/CreditGateVault.auction.t.sol` | 5 Dutch auction liquidation tests — `startLiquidationAuction`, `bidOnLiquidation`, `finalizeAuction`, price-decay math |
+| `test/CreditGateVault.views.t.sol` | 15 view tests — `getHealthFactor`, `getLoanSummary`, `getPortfolioSummary`, interest-aware aggregation |
 | `evidence/tee-attestation.json` | Real attestation produced by the Go FCC handler (POST /action) |
 | `ARCHITECTURE.md` | EIP-191 payload layout, FDC proof verification flow, Flare primitive contracts, security fixes |
 | `DEMO.md` | 90-second demo script for judges |

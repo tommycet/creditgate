@@ -43,7 +43,7 @@ npm install
 cp .env.example .env.local   # then edit RPC + contract addresses
 cd ..
 
-# 4. Run the Solidity test suite (86 tests across 7 suites)
+# 4. Run the Solidity test suite (118 tests across 9 suites)
 forge test
 
 # 5. Start the FCC handler (default :8080, /health + /action)
@@ -70,13 +70,15 @@ creditgate/
 │   ├── CreditGateTypes.sol    # Types, custom errors, events, constants
 │   └── mocks/                 # MockERC20, MockFtsoV2, MockFdcVerification
 ├── test/
-│   ├── CreditGateVault.t.sol                  # 62 unit tests
+│   ├── CreditGateVault.t.sol                  # 69 unit tests
 │   ├── CreditGateVault.fdc-fixture.t.sol      # 4 FDC lifecycle tests
 │   ├── CreditGateVault.invariant.t.sol        # 5 invariant / fuzz tests
 │   ├── CreditGateVault.go-tee-compat.t.sol    # 2 cross-language EIP-191 tests
 │   ├── CreditGateVault.malicious-reentrancy.t.sol  # 1 malicious-token attack test
 │   ├── CreditGateVault.reentrancy.t.sol        # 2 reentrancy / solvency / FTSO-edge
-│   └── CreditGateVault.edge-cases.t.sol       # 10 border-case tests
+│   ├── CreditGateVault.edge-cases.t.sol        # 15 border-case + security-boundary tests
+│   ├── CreditGateVault.views.t.sol            # 15 health-factor + loan/portfolio views
+│   └── CreditGateVault.auction.t.sol          # 5 Dutch auction liquidation tests
 ├── script/
 │   ├── DeployCreditGate.s.sol                 # Main deployment
 │   └── fdcExample/                            # FDC request/verify scripts
@@ -111,7 +113,7 @@ creditgate/
 ### Solidity (Foundry)
 
 ```bash
-forge test                                  # all 86 tests, 7 suites
+forge test                                  # all 118 tests, 9 suites
 forge test -vvv                             # verbose traces (useful for failures)
 forge test --match-contract CreditGateVault # main unit suite only
 forge test --match-test test_RequestLoan    # single test by name
