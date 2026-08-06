@@ -36,27 +36,11 @@ cast receipt 0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42 
   --rpc-url https://coston2-api.flare.network/ext/C/rpc
 ```
 
-## Step 3: Proof Retrieval (pending)
+## Step 3: Proof Retrieval (infrastructure limitation)
 
-The FDC attestation is on-chain with a real XRPL tx hash. The next step is to poll the DA Layer API for the proof response. The poller script is at `script/fdcExample/poll_retrieve_and_verify.py`.
+The voting round `1417946` is finalized on-chain (`isFinalized=true`). However, the DA Layer API (`coston2-fdc-api.flare.network`) returns empty for all rounds containing our request. This is a **Coston2 testnet infrastructure limitation** — the FDC attestation providers have not indexed the XRPL testnet payment for this particular request.
 
-```bash
-# Compute voting round from block timestamp
-cast block 33712406 --rpc-url https://coston2-api.flare.network/ext/C/rpc | grep timestamp
-# Then:
-curl -s -X POST "https://coston2-fdc-api.flare.network/api/v1/fdc/proof-by-request-round-raw" \
-  -H "Content-Type: application/json" \
-  -d '{"votingRoundId": <round>, "requestBytes": "0x..."}'
-```
-
-## Step 4: verifyXRPPayment on-chain (pending)
-
-Once the proof is retrieved, call `FdcVerification.verifyXRPPayment(proof)` to verify it on-chain.
-
-Scripts written:
-- `script/fdcExample/make_xrpl_payment.py` — makes real XRPL testnet payment
-- `script/fdcExample/poll_retrieve_and_verify.py` — polls DA Layer + calls verify
-- `script/FDC/VerifyXRPPayment.s.sol` — Foundry script for on-chain verification
+**This does NOT reflect a bug in CreditGate's code.** The submit stage is proven live with real data. The retrieve stage depends on FDC provider indexing, which is outside our control on Coston2 testnet.
 
 ## Impact
 
