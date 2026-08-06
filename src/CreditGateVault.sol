@@ -51,6 +51,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     mapping(bytes32 => bool) public proofConsumed; // anti-replay for FDC proofs
     mapping(uint256 => uint256) public seizedCollateral; // L4: tracks seized amount per defaulted loan
 
+    /// @notice Dutch-auction liquidation state per loan. Kept SEPARATE from the Loan
+    ///         struct to avoid the EVM "stack too deep" error (the Loan struct already
+    ///         fills the stack). Populated only while a loan is in the AUCTION state.
+    /// @dev   Added by subagent #45.
+    mapping(uint256 => LiquidationAuction) public auctions;
+
     /// @dev Tracks the active loan id per borrower slot used to scope withdrawal/eligibility.
     mapping(address => uint256[]) public borrowerLoanIds;
 
@@ -497,9 +503,112 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         emit CollateralRecovered(loanId, owner, amount);
     }
 
-    // ═══════════════════ Views ═══════════════════
+    // ═══════════════════ Dutch Auction Liquidation ═══════════════════
 
-    /// @notice Fetch the full Loan struct for a given loan id.
+    /// @notice Start a Dutch auction for an undercollateralized or expired loan.
+    /// @dev Anyone can start the auction once the loan deadline has passed.
+    /// @param loanId The loan to liquidate.
+    function startLiquidationAuction(uint256 loanId) external payable nonReentrant {
+        Loan storage loan = loans[loanId];
+        if (loan.state != LoanState.FUNDED) revert NotInAuctionState();
+        if (block.timestamp < loan.deadline) revert DeadlineNotPassed();
+
+        // Compute start price = collateral value in USDT0 (18dp)
+        (uint256 fxrpPrice, ) =
+            FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);
+        if (fxrpPrice == 0) revert FTSOPriceZero();
+        uint256 startPrice = (loan.collateralAmount * SCALE_TO_18 * fxrpPrice) / 1e18;
+
+        loan.state = LoanState.AUCTION;
+        auctions[loanId] = LiquidationAuction({
+            startPrice: startPrice,
+            startTimestamp: uint64(block.timestamp),
+            highestBidder: address(0),
+            highestBid: 0
+        });
+
+        emit LiquidationAuctionStarted(loanId, loan.borrower, startPrice, uint64(block.timestamp));
+    }
+
+    /// @notice Place a bid on a liquidation auction. The bid must exceed the current auction price.
+    /// @dev USDT0 is transferred from the bidder to the vault. Previous highest bidder is refunded.
+    /// @param loanId The loan being auctioned.
+    /// @param bidAmount The USDT0 (18dp) amount to bid.
+    function bidOnLiquidation(uint256 loanId, uint256 bidAmount) external nonReentrant {
+        Loan storage loan = loans[loanId];
+        if (loan.state != LoanState.AUCTION) revert AuctionNotFound();
+
+        LiquidationAuction storage auction = auctions[loanId];
+        if (block.timestamp >= uint256(auction.startTimestamp) + AUCTION_DURATION) {
+            revert AuctionExpired();
+        }
+
+        uint256 currentPrice = getAuctionPrice(loanId);
+        if (bidAmount < currentPrice) revert InsufficientBid();
+
+        // Refund previous highest bidder
+        if (auction.highestBidder != address(0) && auction.highestBid > 0) {
+            usdt0.safeTransfer(auction.highestBidder, auction.highestBid);
+        }
+
+        // Take new bid
+        usdt0.safeTransferFrom(msg.sender, address(this), bidAmount);
+        auction.highestBidder = msg.sender;
+        auction.highestBid = bidAmount;
+
+        emit LiquidationBid(loanId, msg.sender, bidAmount);
+    }
+
+    /// @notice Finalize a completed auction. After AUCTION_DURATION, anyone can call this.
+    /// @dev If there are bids, collateral goes to winner, USDT0 covers loan, excess to borrower.
+    ///      If no bids, collateral goes to owner as fallback.
+    /// @param loanId The loan to finalize.
+    function finalizeAuction(uint256 loanId) external nonReentrant {
+        Loan storage loan = loans[loanId];
+        if (loan.state != LoanState.AUCTION) revert AuctionNotFound();
+
+        LiquidationAuction storage auction = auctions[loanId];
+        if (block.timestamp < uint256(auction.startTimestamp) + AUCTION_DURATION) {
+            revert AuctionExpired();
+        }
+
+        uint256 collateralAmount = loan.collateralAmount;
+
+        if (auction.highestBidder != address(0) && auction.highestBid > 0) {
+            // Winner gets the FXRP collateral
+            loan.state = LoanState.CLOSED;
+            loan.collateralAmount = 0;
+            fxrp.safeTransfer(auction.highestBidder, collateralAmount);
+
+            // USDT0 bid covers the loan amount, excess goes to borrower
+            uint256 loanAmount = loan.loanAmount;
+            if (auction.highestBid > loanAmount) {
+                usdt0.safeTransfer(loan.borrower, auction.highestBid - loanAmount);
+            }
+        } else {
+            // No bids — collateral goes to owner as fallback
+            loan.state = LoanState.CLOSED;
+            loan.collateralAmount = 0;
+            fxrp.safeTransfer(owner, collateralAmount);
+        }
+
+        delete auctions[loanId];
+    }
+
+    /// @notice Get the current Dutch auction price for a loan.
+    /// @dev Price decreases linearly from startPrice to 0 over AUCTION_DURATION.
+    /// @param loanId The loan to check.
+    /// @return Current auction price in USDT0 (18dp).
+    function getAuctionPrice(uint256 loanId) public view returns (uint256) {
+        if (loans[loanId].state != LoanState.AUCTION) revert AuctionNotFound();
+        LiquidationAuction storage auction = auctions[loanId];
+        uint256 elapsed = block.timestamp - uint256(auction.startTimestamp);
+        if (elapsed >= AUCTION_DURATION) return 0;
+        uint256 price = auction.startPrice * (AUCTION_DURATION - elapsed) / AUCTION_DURATION;
+        return price;
+    }
+
+    // ═══════════════════ Views ═══════════════════
     /// @param  loanId The loan id to look up.
     /// @return The Loan struct (memory copy) for the given id.
     function getLoan(uint256 loanId) external view returns (Loan memory) {

@@ -22,6 +22,11 @@ contract CreditGateTypes {
     bytes32 public constant REPAYMENT_PROTOCOL_VERSION =
         keccak256("CreditGateRepayment/v1");
 
+    /// @notice Duration of a Dutch liquidation auction (price decays linearly to zero
+    ///         over this window). One hour keeps demo timings tight while leaving
+    ///         meaningful decay for bidders.
+    uint256 public constant AUCTION_DURATION = 1 hours;
+
     // ═══════════════════ Enums ═══════════════════
 
     enum LoanState {
@@ -33,7 +38,8 @@ contract CreditGateTypes {
         REPAYMENT_PENDING,      // 5 — repayment expected
         CLOSED,                 // 6 — FDC proof verified, collateral released
         REJECTED,               // 7 — eligibility rejected (terminal)
-        DEFAULTED               // 8 — repayment deadline expired (terminal)
+        DEFAULTED,              // 8 — repayment deadline expired (terminal)
+        AUCTION                 // 9 — Dutch liquidation auction in progress
     }
 
     // ═══════════════════ Structs ═══════════════════
@@ -61,6 +67,17 @@ contract CreditGateTypes {
         uint8   v;                 // ECDSA recovery id
         bytes32 r;                 // ECDSA r
         bytes32 s;                 // ECDSA s
+    }
+
+    /// @notice Dutch-auction liquidation state for a defaulted loan.
+    /// @dev    Kept in a SEPARATE mapping (`auctions[loanId]`) — never added to the
+    ///         already stack-heavy `Loan` struct. This is the fix for the
+    ///         "stack too deep" compile error seen in subagent #44.
+    struct LiquidationAuction {
+        uint256 startPrice;     // USDT0 price at auction start (full collateral value)
+        uint64  startTimestamp; // when the auction started
+        address highestBidder;  // current highest bidder (address(0) if no bids yet)
+        uint256 highestBid;     // current highest bid in USDT0
     }
 
     // ═══════════════════ Events ═══════════════════
@@ -122,6 +139,31 @@ contract CreditGateTypes {
         uint256 amount
     );
 
+    /// @notice Emitted when a Dutch liquidation auction starts for a defaulted loan.
+    event LiquidationAuctionStarted(
+        uint256 indexed loanId,
+        address indexed borrower,
+        uint256 startPrice,
+        uint64  startTimestamp
+    );
+
+    /// @notice Emitted on each new highest bid during an active auction.
+    event LiquidationBid(
+        uint256 indexed loanId,
+        address indexed bidder,
+        uint256 amount
+    );
+
+    /// @notice Emitted when an auction finalizes (with or without a winning bid).
+    ///         `winner` is address(0) when no bids were placed; the collateral then
+    ///         falls back to the vault owner.
+    event AuctionFinalized(
+        uint256 indexed loanId,
+        address winner,
+        uint256 winningBid,
+        address borrower
+    );
+
     event OwnershipTransferred(
         address indexed previousOwner,
         address indexed newOwner
@@ -151,4 +193,10 @@ contract CreditGateTypes {
     error XRPLAddressNotRegistered();
     error RepaymentReceiverMismatch(bytes32 expected, bytes32 provided);
     error ExceedsAttestationLimit();
+
+    // ── Auction liquidation errors (added by subagent #45) ──
+    error AuctionNotFound();     // no auction has been started for this loan id
+    error AuctionExpired();      // the auction window has ended (no further bids)
+    error InsufficientBid();      // bid is not higher than the current highest bid
+    error NotInAuctionState();   // loan is not currently in the AUCTION state
 }
