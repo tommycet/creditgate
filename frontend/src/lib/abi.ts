@@ -15,11 +15,6 @@ export const CREDIT_GATE_ABI = [
   "function getBorrowerLoanIds(address) view returns (uint256[])",
   "function borrowerXRPLAddressHash(address) view returns (bytes32)",
 
-  // ERC20 (FXRP / USDT0)
-  "function balanceOf(address) view returns (uint256)",
-  "function allowance(address,address) view returns (uint256)",
-  "function approve(address,uint256) returns (bool)",
-
   // Mutating functions
   "function depositCollateral(uint256 amount) returns (uint256 loanId)",
   "function registerXRPLAddress(bytes32 xrplAddressHash)",
@@ -39,4 +34,14 @@ export const CREDIT_GATE_ABI = [
   "event RepaymentProofSubmitted(uint256 indexed loanId, bytes32 indexed proofHash, int256 receivedDrops)",
   "event LoanClosed(uint256 indexed loanId, address indexed borrower, uint256 collateralReleased)",
   "event LoanDefaulted(uint256 indexed loanId, address indexed borrower, uint256 collateralSeized)",
+] as const;
+
+// S3: Standard ERC20 ABI for token reads (balanceOf/allowance) and writes
+// (approve/transfer). Use this — not CREDIT_GATE_ABI — for all ERC20 token
+// operations so the vault ABI is never overloaded for token contract calls.
+export const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address,address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)",
+  "function transfer(address,uint256) returns (bool)",
 ] as const;

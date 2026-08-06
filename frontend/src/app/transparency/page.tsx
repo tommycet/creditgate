@@ -3,7 +3,7 @@
 import { useReadContract } from "wagmi";
 import { formatUnits } from "viem";
 import { CREDIT_GATE_CONFIG, LOAN_STATES } from "@/config/contract";
-import { CREDIT_GATE_ABI } from "@/lib/abi";
+import { CREDIT_GATE_ABI, ERC20_ABI } from "@/lib/abi";
 
 export default function TransparencyPage() {
   const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
@@ -33,10 +33,10 @@ export default function TransparencyPage() {
     functionName: "nextLoanId",
   });
 
-  // Vault token balances
+  // Vault token balances — S3: use proper ERC20 ABI for token balanceOf reads
   const { data: fxrpBalanceRaw } = useReadContract({
     address: CREDIT_GATE_CONFIG.contracts.fxrp as `0x${string}`,
-    abi: CREDIT_GATE_ABI,
+    abi: ERC20_ABI,
     functionName: "balanceOf",
     args: [vaultAddress],
   });
@@ -44,7 +44,7 @@ export default function TransparencyPage() {
 
   const { data: usdt0BalanceRaw } = useReadContract({
     address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
-    abi: CREDIT_GATE_ABI,
+    abi: ERC20_ABI,
     functionName: "balanceOf",
     args: [vaultAddress],
   });
@@ -142,9 +142,9 @@ export default function TransparencyPage() {
           {/* Test Suite Badge */}
           <div className="bg-gray-900 rounded-lg p-6 border border-gray-700 text-center">
             <h2 className="text-xl font-semibold mb-2">Test Suite</h2>
-            <div className="text-4xl font-bold text-orange-400">76/76</div>
-            <div className="text-sm text-gray-400 mt-1">tests passing across 6 suites</div>
-            <div className="text-xs text-gray-500 mt-1">unit + FDC fixture + invariant/fuzz + Go-TEE + reentrancy + solvency</div>
+            <div className="text-4xl font-bold text-orange-400">91/91</div>
+            <div className="text-sm text-gray-400 mt-1">tests passing across 7 suites</div>
+            <div className="text-xs text-gray-500 mt-1">unit + FDC fixture + invariant/fuzz + Go-TEE + reentrancy + solvency + gateway</div>
           </div>
 
           {/* Evidence Modes */}

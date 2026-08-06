@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useAccount, useWriteContract, useReadContract, useChainId, useSwitchChain } from "wagmi";
+import { useState, useEffect } from "react";
+import { useAccount, useWriteContract, useReadContract, useChainId, useSwitchChain, useWaitForTransactionReceipt } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { parseUnits, formatUnits, keccak256, stringToHex } from "viem";
-import { CREDIT_GATE_CONFIG, LOAN_STATES } from "@/config/contract";
-import { CREDIT_GATE_ABI } from "@/lib/abi";
+import { parseUnits, formatUnits, keccak256, stringToHex, isAddress } from "viem";
+import { CREDIT_GATE_CONFIG, LOAN_STATES, isConfigured } from "@/config/contract";
+import { CREDIT_GATE_ABI, ERC20_ABI } from "@/lib/abi";
 
 export default function AppPage() {
   const { address, isConnected } = useAccount();
@@ -49,9 +49,37 @@ export default function AppPage() {
 
   const [xrplAddress, setXrplAddress] = useState("");
   const [fccJson, setFccJson] = useState("");
+  // S2: client-side validation errors for the user-pasted FCC JSON
+  const [fccError, setFccError] = useState<string | null>(null);
+  // S4: pending + confirmed tx hashes plus a transient success toast
+  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | undefined>(undefined);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Submit eligibility attestation
-  const { writeContract: submitEligibilityTx, isPending: isSubmitting } = useWriteContract();
+  // Submit eligibility attestation — S4: capture the tx hash + error so we can
+  // wait for confirmation and show a success toast once it is mined.
+  const {
+    writeContract: submitEligibilityTx,
+    isPending: isSubmitting,
+    data: submitTxData,
+    error: submitError,
+  } = useWriteContract();
+
+  // S4: track when the most-recent write broadcast is confirmed on-chain. We key
+  // on `pendingTxHash` (set in handleSubmitEligibility) so this hook follows a
+  // single hashed stream rather than tying to one specific write hook.
+  const { data: txReceipt, isLoading: isConfirming } = useWaitForTransactionReceipt({
+    hash: pendingTxHash,
+  });
+
+  // S4: when a tx that we broadcast confirms, surface a toast + auto-clear later
+  useEffect(() => {
+    if (txReceipt && pendingTxHash) {
+      setSuccessToast(`✓ Transaction confirmed — hash ${pendingTxHash.slice(0, 10)}…${pendingTxHash.slice(-6)}`);
+      setPendingTxHash(undefined);
+      const t = setTimeout(() => setSuccessToast(null), 8000);
+      return () => clearTimeout(t);
+    }
+  }, [txReceipt, pendingTxHash]);
 
   // Read the borrower's XRPL binding
   const { data: xrplBindingRaw } = useReadContract({
@@ -63,20 +91,20 @@ export default function AppPage() {
   });
   const xrplBound = xrplBindingRaw && (xrplBindingRaw as `0x${string}`) !== "0x0000000000000000000000000000000000000000000000000000000000000000";
 
-  // Read USDT0 allowance for the vault
+  // Read USDT0 allowance for the vault — S3: use proper ERC20 ABI, not the vault ABI
   const { data: usdt0AllowanceRaw, refetch: refetchAllowance } = useReadContract({
     address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
-    abi: CREDIT_GATE_ABI,
+    abi: ERC20_ABI,
     functionName: "allowance",
     args: address ? [address, vaultAddress] : undefined,
     query: { enabled: !!address },
   });
   const usdt0Allowance = (usdt0AllowanceRaw ?? 0n) as bigint;
 
-  // Read token balances for display
+  // Read token balances for display — S3: ERC20_ABI for token balanceOf reads
   const { data: fxrpBalanceRaw } = useReadContract({
     address: CREDIT_GATE_CONFIG.contracts.fxrp as `0x${string}`,
-    abi: CREDIT_GATE_ABI,
+    abi: ERC20_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     query: { enabled: !!address },
@@ -85,7 +113,7 @@ export default function AppPage() {
 
   const { data: usdt0BalanceRaw } = useReadContract({
     address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
-    abi: CREDIT_GATE_ABI,
+    abi: ERC20_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     query: { enabled: !!address },
@@ -117,17 +145,44 @@ export default function AppPage() {
     if (!loanAmount) return;
     approveUsdt0({
       address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
-      abi: CREDIT_GATE_ABI,
+      abi: ERC20_ABI,
       functionName: "approve",
       args: [vaultAddress, parseUnits(loanAmount, 18)],
     });
   };
 
+  // S2: helper to validate FCC attestation fields before on-chain submission
+  const validateFccAttestation = (att: Record<string, unknown>): string | null => {
+    if (!att || typeof att !== "object") return "Invalid JSON: expected an object";
+    if (!isAddress(att.borrower as string))
+      return "Invalid borrower: must be a valid Ethereum address (0x…)";
+    const limit = Number(att.limit);
+    if (!Number.isFinite(limit) || limit <= 0) return "Invalid limit: must be a positive integer";
+    const expiry = Number(att.expiry);
+    if (!Number.isFinite(expiry) || expiry <= 0) return "Invalid expiry: must be a positive integer";
+    const nonce = att.nonce;
+    if (typeof nonce !== "number" || !Number.isFinite(nonce) || nonce < 0)
+      return "Invalid nonce: must be a non-negative integer";
+    const v = att.v;
+    if (v !== 27 && v !== 28) return "Invalid v: must be 27 or 28";
+    if (typeof att.r !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(att.r))
+      return "Invalid r: must be a 32-byte hex string (0x + 64 hex chars)";
+    if (typeof att.s !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(att.s))
+      return "Invalid s: must be a 32-byte hex string (0x + 64 hex chars)";
+    return null; // all fields valid
+  };
+
   const handleSubmitEligibility = (loanId: bigint) => {
     if (!fccJson) return;
+    setFccError(null);
     try {
       const att = JSON.parse(fccJson);
-      submitEligibilityTx({
+      const error = validateFccAttestation(att);
+      if (error) {
+        setFccError(error);
+        return;
+      }
+      const txResult = submitEligibilityTx({
         address: vaultAddress,
         abi: CREDIT_GATE_ABI,
         functionName: "submitEligibility",
@@ -146,9 +201,17 @@ export default function AppPage() {
         ],
       });
     } catch (e) {
+      setFccError(`Invalid FCC JSON — check format and try again. ${(e as Error).message ?? ""}`);
       console.error("Invalid FCC JSON:", e);
     }
   };
+
+  // S4: wagmi writeContract is async — the tx hash lands in `data` (submitTxData)
+  // after the mutation fires. Once it does, pipe it into pendingTxHash so the
+  // useWaitForTransactionReceipt effect can track on-chain confirmation.
+  useEffect(() => {
+    if (submitTxData) setPendingTxHash(submitTxData);
+  }, [submitTxData]);
 
   const handleRequestEligibility = (loanId: bigint) => {
     requestEligibility({
@@ -179,6 +242,37 @@ export default function AppPage() {
     });
   };
 
+  if (!isConfigured) {
+    return (
+      <main className="min-h-screen bg-gray-950 text-white">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-2xl font-bold">CreditGate Vault</h1>
+            <ConnectButton />
+          </div>
+          {/* S1: zero-address guard — refuse to render interactive UI when the
+               vault address is unset so no tx can ever target address(0). */}
+          <div
+            className="bg-red-900/60 border border-red-500 rounded-lg p-6 max-w-2xl mx-auto"
+            role="alert"
+            aria-live="assertive"
+          >
+            <p className="text-red-300 text-lg font-bold">⚠ Configuration Error</p>
+            <p className="text-red-200 text-sm mt-2">
+              The vault address (<code className="font-mono">NEXT_PUBLIC_VAULT_ADDRESS</code>) is
+              not set. CreditGate cannot interact with the chain until you set it to your deployed
+              <span className="font-mono"> CreditGateVault</span> address on Flare Coston2.
+            </p>
+            <p className="text-red-200/80 text-xs mt-3">
+              Until then, deposits, loans, and withdrawals are disabled to prevent sending
+              transactions to the zero address.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-950 text-white">
       <div className="container mx-auto px-4 py-8">
@@ -194,6 +288,33 @@ export default function AppPage() {
             <p className="text-red-300 text-sm font-semibold">Transaction Error</p>
             <p className="text-red-200 text-xs mt-1">
               {txError?.message || String(txError)}
+            </p>
+          </div>
+        )}
+
+        {/* S4: success toast — auto-clears after 8s */}
+        {successToast && (
+          <div
+            className="mb-6 bg-green-900/60 border border-green-500 rounded-lg p-4"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-green-300 text-sm font-semibold">{successToast}</p>
+          </div>
+        )}
+
+        {/* S4: pending tx confirmation indicator */}
+        {isConfirming && (
+          <div
+            className="mb-6 bg-blue-900/60 border border-blue-500 rounded-lg p-4"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-blue-300 text-sm font-semibold">
+              ⏳ Waiting for on-chain confirmation…
+            </p>
+            <p className="text-blue-200 text-xs mt-1">
+              {pendingTxHash && `Tx: ${pendingTxHash.slice(0, 10)}…${pendingTxHash.slice(-6)}`}
             </p>
           </div>
         )}
@@ -362,7 +483,7 @@ export default function AppPage() {
               </div>
             </div>
 
-            {/* FCC Attestation Panel */}
+            {/* FCC Attestation Panel — S2: inline validation error display */}
             <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
               <h2 className="text-xl font-semibold mb-4">Submit FCC Attestation</h2>
               <div className="space-y-3">
@@ -372,10 +493,22 @@ export default function AppPage() {
                 <input
                   type="text"
                   value={fccJson}
-                  onChange={(e) => setFccJson(e.target.value)}
+                  onChange={(e) => { setFccJson(e.target.value); setFccError(null); }}
                   placeholder='{"borrower":"0x...","limit":"100000000","expiry":"...","nonce":0,"revocationVersion":0,"v":27,"r":"0x...","s":"0x..."}'
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
                 />
+                {/* S2: inline red error when validation fails */}
+                {fccError && (
+                  <p className="text-red-400 text-xs font-semibold" role="alert">
+                    {fccError}
+                  </p>
+                )}
+                {/* S4: submit error from wagmi */}
+                {submitError && (
+                  <p className="text-red-400 text-xs font-semibold" role="alert">
+                    {submitError?.message ?? String(submitError)}
+                  </p>
+                )}
                 <input
                   type="number"
                   value={selectedLoanId}
@@ -385,10 +518,10 @@ export default function AppPage() {
                 />
                 <button
                   onClick={() => selectedLoanId && handleSubmitEligibility(BigInt(selectedLoanId))}
-                  disabled={isSubmitting || !selectedLoanId || !fccJson}
+                  disabled={isSubmitting || isConfirming || !selectedLoanId || !fccJson}
                   className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 rounded-lg py-2 font-semibold transition-colors text-sm"
                 >
-                  {isSubmitting ? "Submitting..." : "Submit Eligibility"}
+                  {isSubmitting ? "Submitting..." : isConfirming ? "Confirming…" : "Submit Eligibility"}
                 </button>
               </div>
             </div>
