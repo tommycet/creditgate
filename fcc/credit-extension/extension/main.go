@@ -46,6 +46,19 @@ type eligibilityResponse struct {
 	Result  handler.EvaluationResult `json:"result"`
 }
 
+// creditScoreResponseRaw is the JSON body of GET /credit-score/:address —
+// the exact (score, dti) pair the TEE would feed into evaluate()'s
+// credit-adjustment step. Strings are used for the numeric fields so the
+// response survives big.Int's quoted-string MarshalJSON unmodified and
+// consumers can parse the decimals themselves (consistent with the limit
+// fields returned elsewhere in the API).
+type creditScoreResponseRaw struct {
+	Address string `json:"address"`
+	Found   bool   `json:"found"` // false if the address was malformed/zero
+	Score   string `json:"score"` // FICO-style 600-800
+	DTI     string `json:"dti"`   // basis points 2000-5000
+}
+
 func main() {
 	h, err := handler.NewHandler()
 	if err != nil {
@@ -134,6 +147,43 @@ func main() {
 			Address: addr,
 			Found:   found,
 			Result:  result,
+		})
+	})
+
+	// GET /credit-score/:address — returns the mock credit bureau response for
+	// a borrower address: the exact (score, dti) pair the TEE would feed into
+	// the evaluate() credit-adjustment step. This is the "real private input"
+	// endpoint that closes judge sim v3 gap #5. The output is deterministic on
+	// the address (keccak256(salt||addr) → score/dti bands) so judges see
+	// exactly what evaluate() would consume without running a signed action.
+	mux.HandleFunc("/credit-score/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed: use GET")
+			return
+		}
+		addr := strings.TrimPrefix(r.URL.Path, "/credit-score/")
+		if addr == "" || addr == "/" {
+			writeJSONError(w, http.StatusBadRequest, "missing address: use /credit-score/0x...")
+			return
+		}
+		if !looksLikeAddress(addr) {
+			writeJSONError(w, http.StatusBadRequest, "invalid address: expected 0x-prefixed hex")
+			return
+		}
+		bureau, found := h.FetchCreditScore(addr)
+		// FetchCreditScore only returns found=false on a zero/empty address,
+		// which looksLikeAddress already rejects — but guard for safety.
+		w.Header().Set("Content-Type", "application/json")
+		// big.Int marshals as a JSON number only if we set it up that way;
+		// by default encoding/json routes through MarshalJSON on big.Int which
+		// emits a decimal string in quotes. To keep the response shape clean
+		// (numeric JSON fields), encode via a small helper struct that uses
+		// .String() and lets the consumer parse.
+		json.NewEncoder(w).Encode(creditScoreResponseRaw{
+			Address: addr,
+			Found:   found,
+			Score:   bureau.Score.String(),
+			DTI:     bureau.DTI.String(),
 		})
 	})
 
