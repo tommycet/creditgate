@@ -169,6 +169,7 @@ CreditGateVault is **deployed and live** on Coston2 (verified 2026-08-06). Vault
 | Deploy tx | [`0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb`](https://coston2-explorer.flare.network/tx/0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb) |
 | FXRP approve tx | [`0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8`](https://coston2-explorer.flare.network/tx/0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8) |
 | FXRP deposit tx | [`0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149`](https://coston2-explorer.flare.network/tx/0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149) |
+| FDC attestation tx | [`0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42`](https://coston2-explorer.flare.network/tx/0x7fd6c89de2fb52afe3f5cae83b44af6417c3af634845116c63e89a2aae7f4a42) | Block 33712406 | Real XRPL testnet tx `0xb9f346a3…4720` (ledger 19689886), round 1417946 finalized |
 | VFXRP deposited | 5,000,000 (5 FXRP, 6 dp) |
 | Owner | `0x5a3969F3767Cde96D662A94cAa79779073F80A0c` |
 
