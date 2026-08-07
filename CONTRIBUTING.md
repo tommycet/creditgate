@@ -100,12 +100,11 @@ creditgate/
 │       ├── lib/  src/  types/  utils/
 ├── lib/                       # Foundry submodules (do not edit)
 ├── evidence/                  # Verifiable artifacts: attestation JSON, Coston2/FDC/XRPL fixtures
-├── planning/                  # Verdict docs (fdc-review, security-audit, gas-audit, judge-sim, ...)
+├── planning/                  # Verdict docs (fdc-review, security-audit, gas-audit, judge-sims/, ...)
 ├── deployments/               # Recorded deployment addresses per chain
 ├── ARCHITECTURE.md            # EIP-191 payload, FDC flow, Flare primitive addresses
 ├── DEMO.md                    # 90-second demo script
 ├── README.md
-└── PROGRAM-SUMMARY.md         # Live status snapshot for improvement subagents
 ```
 
 ## How to Run Tests
@@ -235,4 +234,4 @@ chore: summary
 
 ## Questions / Status
 
-Current status (live snapshot): see `PROGRAM-SUMMARY.md` for test counts, deployed addresses, and known gaps. Architecture details: see `ARCHITECTURE.md`. Demo script: see `DEMO.md`.
+Current status (live snapshot): see `README.md` for test counts and deployed addresses. Architecture details: see `ARCHITECTURE.md`. Demo script: see `DEMO.md`.
