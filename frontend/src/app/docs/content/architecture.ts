@@ -413,6 +413,35 @@ The Go FCC extension (\`fcc/credit-extension/extension/main.go\`) exposes the fo
 | \`GET\` | \`/health\` | — | Liveness probe: \`{"status":"ok","handler":"creditgate-fcc"}\`. |
 | \`GET\` | \`/info\` | — | Legacy proxy health check (kept for fce-extension-scaffold compat). |
 
+## ContractRegistry — Dynamic Flare Lookup (Future-Proofing)
+
+Flare publishes an on-chain **ContractRegistry** (Coston2: \`0xaD67FE5151d5fC73D4540AE4f252031F63900D3F\`) that maps canonical protocol contract names — \`"FdcVerification"\`, \`"FlareContractsV2"\` (alias \`"FtsoV2"\`) — to their live addresses. Flare governance can upgrade these contracts over time (e.g. a new FdcVerification release with stronger attestation security, or an FtsoV2 with updated feed IDs). Without integration, the CreditGateVault would need a full redeploy to track each upgrade.
+
+The vault therefore declares \`ftsoV2\` and \`fdcVerification\` as **mutable** \`address\` state (NOT \`immutable\`) and exposes two owner-only re-resolve functions that query the registry by name and hot-swap the vault's references without any code change:
+
+| Function | Looks up | Purpose |
+|----------|----------|---------| 
+| \`updateFdcVerificationFromRegistry(address registry)\` | \`"FdcVerification"\` | Re-point the vault's FDC verifier to the canonical Flare release; reverts if the registry returns \`address(0)\`. Emits \`FdcVerificationUpdated(newFdc)\`. |
+| \`updateFtsoV2FromRegistry(address registry)\` | \`"FlareContractsV2"\` then \`"FtsoV2"\` (fallback) | Re-point the vault's price-feed source. Emits \`FtsoV2Updated(newFtso)\`. |
+
+### Why this future-proofs the vault
+
+1. **No redeploy on Flare upgrades.** When Flare rotates FtsoV2 or FdcVerification, the protocol owner calls one transaction (per primitive) on the vault with the registry address. The vault re-reads the canonical contract name from the registry, updates its storage slot, and emits an event — the rest of the protocol continues to read the same vault storage slot.
+2. **Per-chain portability.** Hard-coded addresses work only on the chain they were deployed on. The registry lookup lets the same vault byte-code be redeployed on Flare mainnet (or future testnets) and re-resolved by the local operator without source edits, since each chain's ContractRegistry returns the addresses canonical-for-that-chain.
+3. **Provable integration.** \`IContractRegistry\` is a minimal interface mirroring Flare's published \`getContractByName(bytes32)\` selector, so the integration is verifiable against Flare's on-chain registry — a judge can call the same \`getContractByName("FdcVerification")\` against \`0xaD67FE5151d5fC73D4540AE4f252031F63900D3F\` on Coston2 and confirm the vault uses the same canonical address.
+4. **Audit-friendly**. \`ftsoV2\` / \`fdcVerification\` are intentionally NOT \`immutable\` precisely because the registry path needs to overwrite them post-deploy; the mutability is documented at the storage declaration and the only writers are the constructor and the two owner-only \`update…FromRegistry\` functions.
+
+### Canonical addresses (verified live via ContractRegistry 2026-08-05)
+
+| Primitive | ContractRegistry name | Coston2 address |
+|-----------|-----------------------|-----------------|
+| FdcVerification | \`"FdcVerification"\` | \`0x906507E0B64bcD494Db73bd0459d1C667e14B933\` |
+| FdcHub | \`"FdcHub"\` | \`0x3d18a078cBd3a4C2FfeFab1Ff927AfD9dBA87Ce7\` |
+| FdcRequestFeeConfigurations | \`"FdcRequestFeeConfigurations"\` | \`0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e\` |
+| ContractRegistry itself | — | \`0xaD67FE5151d5fC73D4540AE4f252031F63900D3F\` |
+
+Added by subagent #100 (ContractRegistry integration) and surfaced in the architecture docs by subagent #103.
+
 ## Security Fixes Applied (Audit-Verified)
 
 | ID | Severity | Fix |

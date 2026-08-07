@@ -57,3 +57,23 @@ export const ERC20_ABI = [
   "function approve(address,uint256) returns (bool)",
   "function transfer(address,uint256) returns (bool)",
 ] as const;
+
+// S103: CreditScoreSBT ABI — added by subagent #103 for the transparency-page
+// Credit Score SBT badge. The SBT is a non-transferable (soulbound) ERC721
+// carrying a 0-100 score plus per-borrower loan history. The standard ERC721
+// `ownerOf` is used to detect that a borrower has an SBT (and so "Soulbound:
+// Non-transferable" applies). The single view `getScore(address)` returns the
+// full ScoreData tuple. See src/CreditScoreSBT.sol for the canonical definition.
+export const CREDIT_SCORE_SBT_ABI = [
+  // View functions (subagent #98 + #103)
+  "function getScore(address borrower) view returns (uint256 score, uint256 loansCompleted, uint256 loansDefaulted, uint256 totalBorrowed, uint256 totalRepaid, uint256 lastUpdated)",
+  "function scoreOf(uint256 tokenId) view returns (uint256)",
+  "function addressToTokenId(address) view returns (uint256)",
+  "function tokenURI(uint256) view returns (string)",
+  "function vault() view returns (address)",
+  // Standard ERC721 reads (used to confirm a borrower holds the SBT — soulbound
+  // indicator on the badge). ownerOf reverts for unminted ids; we wrap in try/catch
+  // style guards at the callsite, see CreditScoreSBTBadge.tsx.
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function balanceOf(address owner) view returns (uint256)",
+] as const;

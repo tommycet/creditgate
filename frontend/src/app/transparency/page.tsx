@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useReadContract } from "wagmi";
-import { formatUnits } from "viem";
+import { useReadContract, useAccount } from "wagmi";
+import { formatUnits, isAddress } from "viem";
 import { CREDIT_GATE_CONFIG } from "@/config/contract";
 import { CREDIT_GATE_ABI, ERC20_ABI } from "@/lib/abi";
 import { HealthFactorGauge } from "@/components/HealthFactorGauge";
 import { CollateralCoverageBar } from "@/components/CollateralCoverageBar";
+import { CreditScoreSBTBadge } from "@/components/CreditScoreSBTBadge";
 
 /**
  * Loan tuple shape returned by `getLoan(uint256)`.
@@ -140,6 +141,24 @@ export default function TransparencyPage() {
   // state stable across renders).
   const [loans, setLoans] = useState<Record<string, LoanTuple | undefined>>({});
   const [hfs, setHfs] = useState<Record<string, number | undefined>>({});
+
+  // ---- Credit Score SBT (subagent #103) ----
+  // The SBT badge needs a borrower address to call `getScore(address)`. We let
+  // a judge enter any address; default to the connected wallet so it's
+  // useful-without-typing for a logged-in demo borrower. The lookup panel is
+  // shown in the SBT section below.
+  const { address: connectedAddress } = useAccount();
+  const [sbtLookupInput, setSbtLookupInput] = useState("");
+  // Resolve the address to actually look up: typed-in address first (if a
+  // valid 0x... string), else the connected wallet, else "" (the badge will
+  // show its no-address empty state).
+  const trimmed = sbtLookupInput.trim();
+  const sbtLookupAddress =
+    trimmed && isAddress(trimmed)
+      ? (trimmed as `0x${string}`)
+      : connectedAddress
+      ? (connectedAddress as `0x${string}`)
+      : "" as `0x${string}`;
 
   // Stable useCallback-style updaters so children's useEffect deps stay stable.
   const handleLoan = (id: bigint, loan: LoanTuple | undefined) => {
@@ -292,6 +311,65 @@ export default function TransparencyPage() {
                 <div className="text-xs text-gray-500 mt-0.5">funded or auctioning</div>
               </div>
             </div>
+          </div>
+
+          {/* === NEW: Credit Score SBT (subagent #103) === */}
+          <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold">Credit Score SBT</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Soulbound non-transferable credit passport · ERC721 · CGSCORE
+                {" "}— added by subagent #103
+              </p>
+            </div>
+
+            {/* Lookup panel — judge can paste any borrower address */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <label
+                htmlFor="sbt-lookup"
+                className="text-sm text-gray-400 sm:w-44"
+              >
+                Borrower address
+              </label>
+              <div className="flex-1 flex gap-2">
+                <input
+                  id="sbt-lookup"
+                  type="text"
+                  value={sbtLookupInput}
+                  onChange={(e) => setSbtLookupInput(e.target.value)}
+                  placeholder={
+                    connectedAddress
+                      ? `${connectedAddress.slice(0, 8)}…${connectedAddress.slice(-4)} (connected wallet)`
+                      : "0x…  (paste borrower address)"
+                  }
+                  className="flex-1 bg-gray-950 border border-gray-700 rounded-md px-3 py-2 text-sm font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                />
+                {sbtLookupInput && (
+                  <button
+                    type="button"
+                    onClick={() => setSbtLookupInput("")}
+                    className="px-3 py-2 text-xs text-gray-400 border border-gray-700 rounded-md hover:text-white hover:border-gray-500"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 sm:w-44 sm:text-right">
+                Calls{" "}
+                <code className="text-gray-300">
+                  creditScoreSBT.getScore(address)
+                </code>
+              </div>
+            </div>
+
+            {sbtLookupAddress ? (
+              <CreditScoreSBTBadge address={sbtLookupAddress} />
+            ) : (
+              <div className="text-sm text-gray-400 py-6 text-center">
+                Paste a borrower address above (or connect a wallet) to look up
+                their on-chain credit score SBT.
+              </div>
+            )}
           </div>
 
           {/* Vault Status */}
