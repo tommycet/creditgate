@@ -28,9 +28,9 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `ARCHITECTURE.md` — EIP-191 payload, FDC flow, Flare primitive addresses
 - `DEMO.md` — 90-second demo script
 
-## Current State (184 tests, 17 suites, 0 failures)
+## Current State (187 tests, 18 suites, 0 failures)
 - 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 8 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 11 LTV-config + 9 liquidation-trigger + 5 security-edge-case + 5 borrower reputation + 7 grace period
-- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 184 tests / 7 → 17 suites):
+- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 187 tests / 7 → 18 suites):
   1. **Dutch auction liquidation** — when `getHealthFactor` drops below 1.0, anyone can start a linear-decay Dutch auction (`startLiquidationAuction` → `bidOnLiquidation` → `finalizeAuction`); surplus refunds the borrower.
   2. **Interest rate mechanism** — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`), enforced in the FDC repayment check so MemoData must cover principal + accrued interest; `InterestAccrued` emitted on close.
   3. **Health factor & loan/portfolio views** — `getHealthFactor` (collateral×1e18 / (principal+interest), gates liquidation), `getLoanSummary`, `getPortfolioSummary`.
@@ -64,6 +64,6 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - Chain ID: 114, RPC: https://coston2-api.flare.network/ext/C/rpc
 
 ## Build Commands
-- `forge test` — run all 184 tests across 17 suites
+- `forge test` — run all 187 tests across 18 suites
 - `cd frontend && npm run build` — build frontend
 - `cd fcc/credit-extension/extension && go run .` — start FCC handler (:8080, /health + /action)

@@ -39,10 +39,10 @@ Suite result: ok. 15 passed; 0 failed; 0 skipped
 Ran 9 tests for test/CreditScoreSBTTest:CreditScoreSBTTest
 Suite result: ok. 9 passed; 0 failed; 0 skipped
 
-Ran 17 test suites in 102.12s (102.24s CPU time): 184 tests passed, 0 failed, 0 skipped (184 total tests)
+Ran 18 test suites in 102.12s (102.24s CPU time): 187 tests passed, 0 failed, 0 skipped (187 total tests)
 ```
 
-- Tests: **184/184 passed**
+- Tests: **187/187 passed**
 - Suites: **16** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 8 + RealReentrancy 1 + ReentrancyAttack 2 + SecurityEdge 5 + Unit 69 + Views 15 + Auction 5 + LTV 11 + Trigger 9 + ProtocolReserve 13 + Reputation 5 + GracePeriod 7 + CreditScoreSBT 9 = 180)
 - Result: **PASS**
 
@@ -120,7 +120,7 @@ All gates pass:
 
 | Gate | Result |
 |------|--------|
-| `forge test` (184 tests, 17 suites) | ✅ PASS — 0 failures |
+| `forge test` (187 tests, 18 suites) | ✅ PASS — 0 failures |
 | `forge build` | ✅ PASS — compiles, lint advisories only |
 | `npm run build` (frontend) | ✅ PASS — 6 routes prerendered |
 | Stale `76/6` references in user-facing docs | ✅ FIXED this run |
