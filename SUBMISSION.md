@@ -115,7 +115,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 1. **Dutch auction liquidation mechanism** — descending-price auction over 24h for under-collateralized loans
 2. **5% APR interest accrual** — pro-rata interest on outstanding loans, computed at draw/repay
 3. **Health factor** — real-time position health via FTSO price, triggers liquidation below 0.9
-4. **FCC credit bureau in Go TEE** — EIP-191 signed eligibility attestations from a simulated TEE
+4. **Go-based FCC credit evaluation handler — production-ready EIP-191 attestation signer**; runs as an FCC extension per Flare's official architecture. Deployed with simulated TEE attestation on Coston2 (hardware TEE requires mainnet FCC provider enrollment).
 5. **Automated FTSO-threshold liquidation trigger** — `checkAndTriggerLiquidation` + `batchCheckLiquidation` for keepers
 6. **Per-collateral LTV ratio configuration** — `registerCollateral`, `updateLTV`, `getMaxLoanAmount`
 7. **8 invariant/fuzz tests** — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality

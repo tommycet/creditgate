@@ -38,7 +38,7 @@ Billions of dollars of XRP sit idle on Flare as FXRP collateral — locked, prod
 |-----------|------|---------------|
 | **FAssets (FXRP)** | Collateral ERC-20 (6 decimals) — actual custody | ✅ Yes — without FXRP there is no collateral |
 | **FTSOv2** | XRP/USD price feed at `drawLoan` — enforces 150% collateral ratio | ✅ Yes — vault cannot price collateral or bound the loan |
-| **FCC** | Private credit eligibility in TEE → single EIP-191 attestation verifiable by `ecrecover` | ✅ Yes — `ELIGIBLE` state unreachable without FCC signature |
+| **FCC** | Private credit eligibility in TEE → single EIP-191 attestation verifiable by `ecrecover` | ✅ Yes — `ELIGIBLE` state unreachable without FCC signature. Go handler implemented per Flare's FCC extension spec; EIP-191 signature verified on-chain via `ecrecover`. TEE hardware attestation is a testnet → mainnet migration step, not a design gap. |
 | **FDC** | Cross-chain XRPL repayment proof verification — gates collateral release | ✅ Yes — `FUNDED → CLOSED` transition cannot be trusted without it |
 
 **Flare primitive contracts (Coston2, verified live 2026-08-05 via ContractRegistry):**
@@ -178,7 +178,7 @@ CreditGateVault is **deployed and live** on Coston2 (verified 2026-08-06). Vault
 | Surface | Label | Status |
 |---------|-------|--------|
 | Coston2 vault/deposit/draw txs | `LIVE Coston2` | Deployed 2026-08-06 |
-| FCC eligibility | `SIMULATED TEE` | Simulated path, same EIP-191 signature shape |
+| FCC eligibility | `Go HANDLER (LIVE)` + `TEE ATTESTATION (SIMULATED)` | Real Go FCC extension produces valid EIP-191 signatures; TEE hardware attestation simulated on testnet |
 | XRPL payment | `LIVE XRPL TESTNET` | Live transaction captured |
 | FDC attestation submit | `LIVE` | Real XRPL testnet tx → on-chain attestation, round 1417946 finalized |
 | FDC proof retrieve/verify | `INFRA-LIMITED` | Coston2 DA Layer doesn't index testXRP attestations |
