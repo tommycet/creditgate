@@ -6,27 +6,40 @@ Subagent #24 (verification). Run before the Coston2 deployment step.
 
 ```
 $ forge test --summary
-╭-------------------------------------+--------+--------+---------╮
-| Test Suite                          | Passed | Failed | Skipped |
-+=================================================================+
-| CreditGateVaultEdgeCaseTest         | 15     | 0      | 0       |
-| CreditGateVaultFDCFixtureTest       | 4      | 0      | 0       |
-| CreditGateVaultGoTeeCompatTest      | 2      | 0      | 0       |
-| CreditGateVaultInvariantTest        | 8      | 0      | 0       |
-| CreditGateVaultRealReentrancyTest   | 1      | 0      | 0       |
-| CreditGateVaultReentrancyAttackTest | 2      | 0      | 0       |
-| CreditGateVaultTest                 | 69     | 0      | 0       |
-| CreditGateVaultViewsTest            | 15     | 0      | 0       |
-| CreditGateVaultAuctionTest          | 5      | 0      | 0       |
-| CreditGateVaultLTVTest              | 11     | 0      | 0       |
-│ CreditGateVaultTriggerTest          | 9      | 0      | 0       │
-│ CreditGateVaultSecurityEdgeTest     | 5      | 0      | 0       │
-│ CreditGateVaultProtocolReserveTest  | 13     | 0      | 0       │
-│ CreditGateVaultReputationTest       | 5      | 0      | 0       │
-│ CreditGateVaultGracePeriodTest      | 7      | 0      | 0       │
-│ CreditScoreSBTTest                  | 9      | 0      | 0       │
-╰-------------------------------------+--------+--------+---------╯
-Ran 16 test suites in 54.85s: 180 tests passed, 0 failed, 0 skipped (180 total tests)
+Ran 5 tests for test/CreditGateVaultAuctionTest:CreditGateVaultAuctionTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 9 tests for test/CreditGateVaultLTVTest:CreditGateVaultLTVTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped
+Ran 15 tests for test/CreditGateVaultEdgeCasesTest:CreditGateVaultEdgeCasesTest
+Suite result: ok. 15 passed; 0 failed; 0 skipped
+Ran 4 tests for test/CreditGateVaultFDCFixtureTest:CreditGateVaultFDCFixtureTest
+Suite result: ok. 4 passed; 0 failed; 0 skipped
+Ran 2 tests for test/CreditGateVaultGoTeeCompatTest:CreditGateVaultGoTeeCompatTest
+Suite result: ok. 2 passed; 0 failed; 0 skipped
+Ran 7 tests for test/CreditGateVaultGracePeriodTest:CreditGateVaultGracePeriodTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped
+Ran 1 tests for test/CreditGateVaultRealReentrancyTest:CreditGateVaultRealReentrancyTest
+Suite result: ok. 1 passed; 0 failed; 0 skipped
+Ran 2 tests for test/CreditGateVaultReentrancyAttackTest:CreditGateVaultReentrancyAttackTest
+Suite result: ok. 2 passed; 0 failed; 0 skipped
+Ran 8 tests for test/CreditGateVaultInvariantTest:CreditGateVaultInvariantTest
+Suite result: ok. 8 passed; 0 failed; 0 skipped (256 runs each)
+Ran 13 tests for test/CreditGateVaultProtocolReserveTest:CreditGateVaultProtocolReserveTest
+Suite result: ok. 13 passed; 0 failed; 0 skipped
+Ran 5 tests for test/CreditGateVaultReputationTest:CreditGateVaultReputationTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 5 tests for test/CreditGateVaultSecurityEdgeTest:CreditGateVaultSecurityEdgeTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 69 tests for test/CreditGateVaultTest:CreditGateVaultTest
+Suite result: ok. 69 passed; 0 failed; 0 skipped
+Ran 9 tests for test/CreditGateVaultTriggerTest:CreditGateVaultTriggerTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped
+Ran 15 tests for test/CreditGateVaultViewsTest:CreditGateVaultViewsTest
+Suite result: ok. 15 passed; 0 failed; 0 skipped
+Ran 9 tests for test/CreditScoreSBTTest:CreditScoreSBTTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped
+
+Ran 16 test suites in 102.12s (102.24s CPU time): 180 tests passed, 0 failed, 0 skipped (180 total tests)
 ```
 
 - Tests: **180/180 passed**
