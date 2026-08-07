@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {CreditGateTypes} from "./CreditGateTypes.sol";
+import {CreditScoreSBT} from "./CreditScoreSBT.sol";
 import {ReentrancyGuard} from
     "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -109,6 +110,13 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///        keeper batch and the single-loan auto trigger).
     mapping(address => BorrowerReputation) public borrowerReputation;
 
+    // ═══════════════════ Credit Score SBT (subagent #98) ═══════════════════
+    /// @notice Non-transferable soulbound ERC721 representing a borrower's on-chain
+    ///         credit score. Minted on first successful repayment, updated on every
+    ///         subsequent repayment close. Deployed by this vault in the constructor,
+    ///         so the vault is the sole authorized minter/updater.
+    CreditScoreSBT public creditScoreSBT;
+
     // ═══════════════════ Modifiers ═══════════════════
 
     modifier onlyOwner() {
@@ -173,6 +181,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         collateralDecimals[_fxrp] = 6;       // FXRP is 6-decimal
         collateralLTV[_usdt0] = 8500;       // USDT0 → 85% LTV (also a valid collateral type)
         collateralDecimals[_usdt0] = 18;     // USDT0 is 18-decimal on Coston2 (verified 2026-08-05)
+
+        // ── Deploy the soulbound credit-score SBT (subagent #98) ──
+        // The vault becomes the SBT's sole authorized minter/updater (the SBT's
+        // constructor stores `vault = msg.sender`). Borrowers earn their credit
+        // badge on first verified repayment and it updates on every subsequent close.
+        creditScoreSBT = new CreditScoreSBT();
     }
 
     // ═══════════════════ Owner / Admin ═══════════════════
@@ -646,6 +660,37 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         borrowerReputation[borrower].loansCompleted += 1;
         borrowerReputation[borrower].totalRepaid += loan.loanAmount;
         emit BorrowerReputationUpdated(borrower, 1 /* REPAID */, loan.loanAmount);
+
+        // ── Credit Score SBT: mint / update the soulbound credit badge (subagent #98) ──
+        // Compute the 0-100 credit score from the freshly-updated reputation and persist
+        // it on the borrower's non-transferable SBT (the "credit passport"). Mints on
+        // first repayment, updates on subsequent ones. Only this vault can write the SBT.
+        //
+        // Score formula:  base 50, +10 per completed loan, -25 per defaulted loan,
+        // + (totalRepaid * 20 / totalBorrowed) repayment-ratio bonus. Clamped to [0, 100].
+        // To avoid Solidity's unchecked uint256 underflow when defaulted-heavy history
+        // would make `50 + completed*10 < defaulted*25`, we compute in signed math
+        // (int256) and clamp before narrowing back to uint256.
+        {
+            BorrowerReputation storage rep = borrowerReputation[borrower];
+            int256 raw = 50
+                + int256(uint256(rep.loansCompleted)) * 10
+                - int256(uint256(rep.loansDefaulted)) * 25;
+            if (rep.totalBorrowed > 0) {
+                raw += int256((rep.totalRepaid * 20) / rep.totalBorrowed);
+            }
+            if (raw < 0) raw = 0;
+            if (raw > 100) raw = 100;
+            uint256 safeScore = uint256(raw);
+            creditScoreSBT.mintOrUpdate(
+                borrower,
+                safeScore,
+                rep.loansCompleted,
+                rep.loansDefaulted,
+                rep.totalBorrowed,
+                rep.totalRepaid
+            );
+        }
 
         fxrp.safeTransfer(borrower, collateralReleased);
 
