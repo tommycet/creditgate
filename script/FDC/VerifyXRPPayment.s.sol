@@ -56,9 +56,7 @@ contract VerifyXRPPayment is Script {
         string[] memory proofStrs = vm.parseJsonStringArray(raw, ".proof.proof");
         bytes32[] memory merkleProof = new bytes32[](proofStrs.length);
         for (uint256 i = 0; i < proofStrs.length; i++) {
-            merkleProof[i] = vm.parseBytes32(
-                string.concat('{"v":"', proofStrs[i], '"}'), ".v"
-            );
+            merkleProof[i] = vm.parseBytes32(proofStrs[i]);
         }
 
         // ── ABI-decode the response_hex into IXRPPayment.Response ───────────────
