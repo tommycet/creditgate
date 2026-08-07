@@ -1,6 +1,6 @@
 # Test Summary — CreditGateVault
 
-**Total tests: 180 · Test suites: 16 · Failures: 0 · Skipped: 0**
+**Total tests: 184 · Test suites: 17 · Failures: 0 · Skipped: 0**
 **Command: `forge test` → "Ran 17 test suites … 184 tests passed, 0 failed, 0 skipped (184 total tests)"**
 
 Verified 2026-08-05 on Foundry (solc 0.8.35) after a `forge clean` to flush the incremental
