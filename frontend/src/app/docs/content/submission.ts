@@ -121,8 +121,8 @@ A 3-minute demo script is provided in [\`DEMO.md\`](DEMO.md), structured as five
 5. **Automated FTSO-threshold liquidation trigger** — \`checkAndTriggerLiquidation\` + \`batchCheckLiquidation\` for keepers
 6. **Per-collateral LTV ratio configuration** — \`registerCollateral\`, \`updateLTV\`, \`getMaxLoanAmount\`
 7. **8 invariant/fuzz tests** — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality
-8. **Live deployment on Coston2** — vault at \`0x5e74d...\`, 5 FXRP collateral deposited, FTSO price feed live
-9. **FDC attestation submitted live** — tx \`0x9bc263fe...\`, voting round 1417465 finalized on-chain
+8. **Live deployment on Coston2** — vault at \`0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939\`, 5 FXRP collateral deposited, FTSO price feed live ($1.05)
+9. **Live FDC attestation with real XRPL testnet payment** — XRPL tx \`0xb9f346a3…4720\` (ledger 19689886) → Coston2 FDC attestation tx \`0x7fd6c89d…4a42\` (block 33712406, status=1), voting round 1417946 finalized on-chain (\`isFinalized=true\`). DA Layer proof retrieval blocked by Coston2 testXRP indexing infra limit (honestly documented in \`evidence/fdc-real-verify.md\`).
 10. **Source verified on Blockscout** — judges can inspect the verified Solidity source
 11. **3 adversarial security audits** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed
 12. **141-test Foundry suite across 11 suites** — grew from 91 to 141 during the program
