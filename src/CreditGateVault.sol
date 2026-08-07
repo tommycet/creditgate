@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {CreditGateTypes} from "./CreditGateTypes.sol";
+import {IContractRegistry} from "./CreditGateTypes.sol";
 import {CreditScoreSBT} from "./CreditScoreSBT.sol";
 import {ReentrancyGuard} from
     "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -34,8 +35,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     uint256 public immutable collateralRatioBps; // e.g. 15000 = 150%
     uint64 public immutable ftsoStalenessLimit; // max feed age in seconds
     uint256 public immutable loanDuration; // loan lifetime in seconds
-    address public immutable ftsoV2; // FtsoV2 source (test-flexible)
-    address public immutable fdcVerification; // FdcVerification (test-flexible)
+    /// @dev Mutable (NOT immutable) so they can be re-resolved from Flare's
+    ///      ContractRegistry by `updateFdcVerificationFromRegistry` /
+    ///      `updateFtsoV2FromRegistry` after a governance upgrade (subagent #100).
+    ///      Public getter still works as `vault.ftsoV2()` / `vault.fdcVerification()`.
+    address public ftsoV2; // FtsoV2 source (re-resolvable from ContractRegistry)
+    address public fdcVerification; // FdcVerification (re-resolvable from ContractRegistry)
 
     // ═══════════════════ Storage ═══════════════════
     // G1 (gas-audit): `paused` (1 byte) + `owner` (20 bytes) packed into a single
@@ -211,6 +216,47 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         address previousOwner = owner;
         owner = newOwner;
         emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
+    // ═══════════════════ ContractRegistry Integration (subagent #100) ═══════════════════
+    //
+    // Flare publishes a ContractRegistry (Coston2:
+    // 0xaD67FE5151d5fC73D4540AE4f252031F63900D3F) that maps protocol contract
+    // names — "FdcVerification", "FlareContractsV2" / "FtsoV2" — to their canonical
+    // on-chain addresses. The vault takes FtsoV2 / FdcVerification as constructor
+    // args at deploy time, but Flare can governance-upgrade those contracts. The
+    // two functions below let the owner re-resolve them from the registry without
+    // redeploying the vault — demonstrating deeper Flare ecosystem integration and
+    // making the vault future-proof. `ftsoV2` and `fdcVerification` are therefore
+    // declared mutable (NOT immutable) above.
+
+    /// @notice Update the FDC verification contract address from Flare's ContractRegistry.
+    /// @dev    This demonstrates dynamic Flare integration — the vault can upgrade its
+    ///         FDC verifier when Flare updates the registry, without redeploying. Looks
+    ///         up "FdcVerification" by name and reverts if the registry returns zero.
+    ///         Owner-only; emits {FdcVerificationUpdated}.
+    /// @param  registry The Flare ContractRegistry address to query.
+    function updateFdcVerificationFromRegistry(address registry) external onlyOwner {
+        address newFdc = IContractRegistry(registry).getContractByName("FdcVerification");
+        require(newFdc != address(0), "Registry returned zero");
+        fdcVerification = newFdc;
+        emit FdcVerificationUpdated(newFdc);
+    }
+
+    /// @notice Update the FTSOv2 contract address from Flare's ContractRegistry.
+    /// @dev    Mirrors `updateFdcVerificationFromRegistry` for the price-feed source.
+    ///         Tries "FlareContractsV2" first (Flare's canonical FtsoV2 name) and
+    ///         falls back to "FtsoV2". Reverts if the registry returns zero for both.
+    ///         Owner-only; emits {FtsoV2Updated}.
+    /// @param  registry The Flare ContractRegistry address to query.
+    function updateFtsoV2FromRegistry(address registry) external onlyOwner {
+        address newFtso = IContractRegistry(registry).getContractByName("FlareContractsV2");
+        if (newFtso == address(0)) {
+            newFtso = IContractRegistry(registry).getContractByName("FtsoV2");
+        }
+        require(newFtso != address(0), "Registry returned zero");
+        ftsoV2 = newFtso;
+        emit FtsoV2Updated(newFtso);
     }
 
     /// @notice Mark a borrower's eligibility as revoked. Bumps revocation version so any

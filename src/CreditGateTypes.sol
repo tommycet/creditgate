@@ -290,6 +290,18 @@ contract CreditGateTypes {
         uint256 amount
     );
 
+    // ── ContractRegistry integration events (subagent #100) ──
+    /// @notice Emitted when the owner re-resolves the FDC verification contract from
+    ///         Flare's ContractRegistry via `updateFdcVerificationFromRegistry`,
+    ///         pointing the vault at a freshly-governance-upgraded verifier without
+    ///         redeploying. Demonstrates dynamic Flare ecosystem integration.
+    event FdcVerificationUpdated(address indexed newFdcVerification);
+
+    /// @notice Emitted when the owner re-resolves the FTSOv2 contract from Flare's
+    ///         ContractRegistry via `updateFtsoV2FromRegistry`. Carries the new
+    ///         `FtsoV2` / `FlareContractsV2` address the vault will read prices from.
+    event FtsoV2Updated(address indexed newFtsoV2);
+
     // ═══════════════════ Custom Errors ═══════════════════
 
     /// @dev Reverts when a zero amount is passed where a positive amount is required
@@ -387,4 +399,23 @@ contract CreditGateTypes {
     /// @dev Reverts in `updateLTV` when the collateral token was never registered
     ///      (neither an LTV nor a decimal count was ever written for it).
     error UnknownCollateral(address token);
+}
+
+/// @title IContractRegistry — Flare on-chain ContractRegistry lookup interface.
+/// @notice Minimal interface for the Flare ContractRegistry
+///         (Coston2: 0xaD67FE5151d5fC73D4540AE4f252031F63900D3F), which maps
+///         protocol contract names — e.g. "FdcVerification", "FlareContractsV2",
+///         "FtsoV2" — to their canonical on-chain addresses. Used by
+///         `CreditGateVault.updateFdcVerificationFromRegistry` /
+///         `updateFtsoV2FromRegistry` so the vault can re-resolve Flare protocol
+///         contracts after a governance upgrade without redeploying.
+/// @dev    Only the `getContractByName(string)` view is needed; the real registry
+///         also exposes `getContractsByNames(string[])` and an admin set path,
+///         both intentionally omitted here. Added by subagent #100 (ContractRegistry
+///         integration, discovery quick win).
+interface IContractRegistry {
+    /// @notice Returns the canonical on-chain address registered under `name`.
+    /// @param  name   The Flare protocol contract name (e.g. "FdcVerification").
+    /// @return        The registered address, or address(0) if `name` is unknown.
+    function getContractByName(string calldata name) external view returns (address);
 }
