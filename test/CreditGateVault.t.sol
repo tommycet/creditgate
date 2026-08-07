@@ -890,7 +890,8 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         loan = vault.getLoan(loanId);
         assertEq(uint8(loan.state), uint8(LoanState.CLOSED));
         assertEq(loan.collateralAmount, 0);
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP);
+        // 1% protocol reserve fee applied on repayment
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6);
     }
 
     function test_submitRepaymentProof_revertsIfFDCFails() public {
@@ -1291,6 +1292,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.submitRepaymentProof(loanId, proof);
 
         assertEq(uint8(vault.getLoan(loanId).state), uint8(LoanState.CLOSED));
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP);
+        // 1% protocol reserve fee applied on repayment
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6);
     }
 }

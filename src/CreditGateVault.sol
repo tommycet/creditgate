@@ -85,6 +85,14 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     ///      different XRPL address but reuses a valid memo commitment.
     mapping(address => bytes32) public borrowerXRPLAddressHash;
 
+    // ═══════════════════ Protocol Reserve (Aave Safety Module pattern) ═══════════════════
+    /// @notice Protocol reserve fee in basis points (100 = 1%). Deducted from
+    ///         collateral released on each successful repayment and accumulated
+    ///         as a backstop fund — inspired by Aave's Safety Module.
+    uint256 public protocolReserveBps = 100;
+    /// @notice Accumulated FXRP held by the protocol as reserve (6 decimals).
+    uint256 public protocolReserve;
+
     // ═══════════════════ Modifiers ═══════════════════
 
     modifier onlyOwner() {
@@ -601,15 +609,26 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
 
         proofConsumed[proofHash] = true;
 
-        // Release FXRP collateral back to borrower and close.
-        uint256 collateralReleased = loan.collateralAmount;
+        // ── Protocol reserve fee (Aave Safety Module pattern) ──
+        // Deduct protocolReserveBps from the INTEREST portion of repayment.
+        // The collateral is returned in full; only the interest fee funds the backstop.
+        uint256 totalRepaid = resp.receivedAmount;
+        uint256 interestOwed = totalRepaid > loan.loanAmount 
+            ? totalRepaid - loan.loanAmount 
+            : 0;
+        uint256 fee = (interestOwed * protocolReserveBps) / 10000;
+        protocolReserve += fee;
+
         loan.collateralAmount = 0;
         loan.state = LoanState.CLOSED;
 
-        fxrp.safeTransfer(borrower, collateralReleased);
+        fxrp.safeTransfer(borrower, loan.collateralAmount);
 
         emit RepaymentProofSubmitted(loanId, proofHash, resp.receivedAmount);
-        emit LoanClosed(loanId, borrower, collateralReleased);
+        if (fee > 0) {
+            emit ProtocolReserveFee(loanId, fee);
+        }
+        emit LoanClosed(loanId, borrower, loan.collateralAmount);
     }
 
     /// @notice Liquidate a funded loan whose repayment deadline has passed. Seizes the
@@ -646,6 +665,33 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         loan.state = LoanState.IDLE; // fully resolved
         fxrp.safeTransfer(owner, amount);
         emit CollateralRecovered(loanId, owner, amount);
+    }
+
+    // ═══════════════════ Protocol Reserve ═══════════════════
+
+    /// @notice Withdraw accumulated protocol reserve FXRP to the owner.
+    ///         Only callable by `owner`. Emits {ReserveWithdrawn}.
+    /// @dev    Transfers the full `protocolReserve` balance and resets it to 0.
+    function withdrawReserve() external onlyOwner nonReentrant {
+        uint256 amount = protocolReserve;
+        require(amount > 0, "NoReserve");
+        protocolReserve = 0;
+        fxrp.safeTransfer(owner, amount);
+        emit ReserveWithdrawn(owner, amount);
+    }
+
+    /// @notice Current accumulated protocol reserve balance (FXRP, 6 decimals).
+    function getProtocolReserve() external view returns (uint256) {
+        return protocolReserve;
+    }
+
+    /// @notice Update the protocol reserve fee rate (basis points, max 1000 = 10%).
+    /// @dev    Only callable by `owner`. Emits {ReserveBpsUpdated}.
+    function updateProtocolReserveBps(uint256 newBps) external onlyOwner {
+        require(newBps <= 1000, "ReserveBpsTooHigh");
+        uint256 oldBps = protocolReserveBps;
+        protocolReserveBps = newBps;
+        emit ReserveBpsUpdated(oldBps, newBps);
     }
 
     // ═══════════════════ Dutch Auction Liquidation ═══════════════════

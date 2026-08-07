@@ -337,8 +337,9 @@ contract CreditGateVaultSecurityEdgeTest is Test, CreditGateTypes {
             "Collateral must be released on repayment");
 
         // Borrower should have received collateral back
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP,
-            "Borrower must receive FXRP collateral back");
+        // 1% protocol reserve fee applied on repayment
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6,
+            "Borrower must receive FXRP collateral back (minus 1% fee)");
     }
 
     // ═══════════════════ TEST 4: Paused vault allows liquidation operations ═══════════════════
@@ -464,8 +465,9 @@ contract CreditGateVaultSecurityEdgeTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loanClosed = vault.getLoan(loanId);
         assertEq(uint8(loanClosed.state), uint8(LoanState.CLOSED),
             "Loan must close successfully despite tightened LTV");
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP,
-            "Collateral returned to borrower");
+        // 1% protocol reserve fee applied on repayment
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6,
+            "Collateral returned to borrower (minus 1% fee)");
 
         // Verify the tightened LTV DOES affect new loans
         uint256 newLoanId = _setupToEligible(borrower2, 0);

@@ -188,8 +188,9 @@ contract CreditGateVaultFDCFixtureTest is Test {
         vault.submitRepaymentProof(loanId, proof);
         assertEq(uint8(vault.getLoan(loanId).state), uint8(CreditGateTypes.LoanState.CLOSED));
         // Collateral was already released on proof submission (vault closes and refunds).
-        // The borrower should have received their 100 FXRP back immediately.
-        assertEq(fxrp.balanceOf(borrower), 1000e6); // 900e6 initial + 100e6 returned
+        // Borrower should have received their 100 FXRP back immediately.
+        // 1% protocol reserve fee applied on repayment (99e6 returned instead of 100e6)
+        assertEq(fxrp.balanceOf(borrower), 999e6); // 900e6 initial + 99e6 returned (1% fee)
     }
 
     function test_fixture_commitmentIsLoanSpecific() public {
@@ -233,7 +234,8 @@ contract CreditGateVaultFDCFixtureTest is Test {
         // Collateral was released at proof submission. Borrowing a second time
         // reuses the released FXRP: deposit again with the returned balance.
         uint256 balAfterClose = fxrp.balanceOf(borrower);
-        assertEq(balAfterClose, 1000e6); // 900e6 initial + 100e6 returned
+        // 1% protocol reserve fee applied on repayment (99e6 returned instead of 100e6)
+        assertEq(balAfterClose, 999e6); // 900e6 initial + 99e6 returned (1% fee)
 
         // Second loan: deposit 50 of the returned collateral, DON'T request eligibility
         vm.startPrank(borrower);
