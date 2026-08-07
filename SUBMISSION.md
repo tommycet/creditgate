@@ -72,10 +72,10 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 
 Every claim is backed by a file a judge can open and run.
 
-- **187 tests across 18 suites, 0 failures** — `forge test` reproduces on camera
+- **186 tests across 17 suites, 0 failures** — `forge test` reproduces on camera
 - **97.75% line coverage** of `CreditGateVault.sol`
 - **5 security fixes audit-verified** — all M1/M2/L1/L2/L4/L5 findings remediated; `planning/security-audit/verdict.md` = PASS
-- **Go-TEE ↔ Solidity cross-language compatibility** — `test/CreditGateVault.go-tee-compat.t.sol` (2 tests): the Go handler's real EIP-191 signature is accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`
+- **Cross-language TEE compatibility** — `test/CreditGateVault.tee-compat.t.sol` (4 tests): EIP-191 signatures from both the Go handler and the Python TEE handler (GCP Confidential Space / Intel TDX) are accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`
 - **Real reentrancy attack test** — `test/CreditGateVault.malicious-reentrancy.t.sol`: a malicious FXRP token invokes `depositCollateral` from inside `transferFrom`; **blocked by `ReentrancyGuard`**. We didn't just add the guard — we wrote an attack that proves it.
 - **Invariant / fuzz tests** — `test/CreditGateVault.invariant.t.sol` (8 tests, 256 runs each): FXRP conservation (collateral never leaks), USDT0 solvency (vault never disburses more than it holds), no overdraft, state-machine ordering, no ghost collateral, interest never exceeds collateral, LTV limit respected, terminal-loan finality — across fuzzed inputs
 - **FDC lifecycle fixture test** — `test/CreditGateVault.fdc-fixture.t.sol` (4 tests): realistic XRPL payment proof verified through the production `FdcVerification` ABI
@@ -91,18 +91,18 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 2. **Act 1 — The Problem (30s)** — the transparency dashboard; FXRP idle, unmet credit demand
 3. **Act 2 — Deposit + Credit Check (45s)** — deposit 100 FXRP, register XRPL r-address, FCC handler POSTs and returns an EIP-191 attestation, vault verifies via `ecrecover` → `ELIGIBLE`
 4. **Act 3 — Draw Loan + Repay (45s)** — draw 50 USDT0 against the live FTSOv2 XRP/USD price; FDC verifies a pre-captured XRPL payment proof (`FDC FIXTURE` — fixture proof, live `FdcVerification` ABI); collateral released → `CLOSED`
-5. **Act 4 — Security + Evidence (30s)** — full suite passing on camera: reentrancy attack blocked, Go-TEE cross-language compat, invariant fuzz tests
+5. **Act 4 — Security + Evidence (30s)** — full suite passing on camera: reentrancy attack blocked, cross-language TEE compat (Go + Python), invariant fuzz tests
 6. **Act 5 — Flare Primitives (15s)** — the four-primitive tableau: FAssets, FTSOv2, FCC, FDC, each load-bearing
 
 ### Key Numbers
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 187 across 18 suites, 0 failures |
+| Tests passing | 186 across 17 suites, 0 failures |
 | Line coverage | 97.75% |
 | Flare primitives used | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
-| Go-TEE cross-language tests | 2 (Go signature → Solidity `ecrecover`) |
+| Cross-language TEE tests | 4 (Go + Python → Solidity `ecrecover`) |
 | Reentrancy attack tests | 1 (malicious FXRP token blocked) |
 | Invariant/fuzz tests | 8 (256 runs each — FXRP conservation, USDT0 solvency, no overdraft, state ordering, no ghost collateral, interest ceiling, LTV limit, terminal-loan finality) |
 | FDC lifecycle tests | 4 (realistic XRPL proof verified) |
@@ -132,7 +132,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 10. **Source verified on Blockscout** — judges can inspect the verified Solidity source
 11. **3 adversarial security audits** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed
 12. **5 critical security edge-case tests** — negative FDC amount overflow, cross-loan proof replay, past-deadline interest accrual, paused-vault liquidation, LTV non-retroactive
-13. **180-test Foundry suite across 18 suites** — grew from 91 to 180 during the program
+13. **186-test Foundry suite across 17 suites** — grew from 91 to 186 during the program
 14. **Frontend /docs section** — consolidated evidence and reports into browseable Next.js pages
 15. **Protocol reserve fund** — 1% fee on interest payments funds a backstop reserve; owner-withdrawable (Aave Safety Module pattern)
 16. **Borrower reputation tracking** — on-chain history (totalBorrowed, totalRepaid, loansCompleted, loansDefaulted) powering FCC credit scoring (Aave/ARCx pattern)
@@ -144,7 +144,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 ## Team
 
-**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (187 tests / 18 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
+**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (186 tests / 17 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
 
 ## Future Roadmap
 
@@ -159,11 +159,11 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 ## Repository
 
 **GitHub:** https://github.com/tommycet/creditgate
-*If the repo is set to private at judging time, contact via DoraHacks — it will be made public for the submission window. The repository contains the full Solidity vault, Foundry test suite (`forge test` → 187 tests / 18 suites / 0 failures), FCC Go handler, and Next.js frontend.)*
+*If the repo is set to private at judging time, contact via DoraHacks — it will be made public for the submission window. The repository contains the full Solidity vault, Foundry test suite (`forge test` → 186 tests / 17 suites / 0 failures), FCC Go handler, and Next.js frontend.)*
 
 **Quick start:**
 ```bash
-forge test                                       # 187 tests, 18 suites, 0 failures
+forge test                                       # 186 tests, 17 suites, 0 failures
 cd frontend && npm run dev                         # http://localhost:3000
 cd fcc/credit-extension/extension && go run .      # :8080 — POST /action → EIP-191 attestation
 ```
