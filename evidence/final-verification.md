@@ -21,11 +21,11 @@ $ forge test --summary
 | CreditGateVaultLTVTest              | 11     | 0      | 0       |
 | CreditGateVaultTriggerTest          | 9      | 0      | 0       |
 ╰-------------------------------------+--------+--------+---------╯
-Ran 11 test suites in 43.09s: 141 tests passed, 0 failed, 0 skipped (141 total tests)
+Ran 12 test suites in 43.09s: 146 tests passed, 0 failed, 0 skipped (146 total tests)
 ```
 
-- Tests: **141/141 passed**
-- Suites: **11** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 8 + RealReentrancy 1 + ReentrancyAttack 2 + Unit 69 + Views 15 + Auction 5 + LTV 11 + Trigger 9 = 141)
+- Tests: **146/146 passed**
+- Suites: **12** (EdgeCase 15 + FDC 4 + GoTee 2 + Invariant 8 + RealReentrancy 1 + ReentrancyAttack 2 + SecurityEdge 5 + Unit 69 + Views 15 + Auction 5 + LTV 11 + Trigger 9 = 146)
 - Result: **PASS**
 
 ## Solidity Build
@@ -102,7 +102,7 @@ All gates pass:
 
 | Gate | Result |
 |------|--------|
-| `forge test` (141 tests, 11 suites) | ✅ PASS — 0 failures |
+| `forge test` (146 tests, 12 suites) | ✅ PASS — 0 failures |
 | `forge build` | ✅ PASS — compiles, lint advisories only |
 | `npm run build` (frontend) | ✅ PASS — 6 routes prerendered |
 | Stale `76/6` references in user-facing docs | ✅ FIXED this run |

@@ -17,7 +17,7 @@
 | Per-loan XRPL address snapshot + MemoData commitment | ✅ Live |
 | Anti-replay (proofConsumed flag) | ✅ Live |
 | ReentrancyGuard | ✅ Live |
-| 141 tests, 11 suites, 97.75% coverage | ✅ Live |
+| 146 tests, 12 suites, 97.75% coverage | ✅ Live |
 
 **What's missing:** No interest rate model, no liquidation mechanism, no multi-collateral support, no yield/vault layer, no credit score portability, no governance.
 

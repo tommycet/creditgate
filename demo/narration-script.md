@@ -10,7 +10,7 @@
 
 ## Scene 1 — Hook (5s, 0:00–0:05)
 
-**VISUAL:** Black. CreditGate wordmark snaps on. One line types: *"XRP collateral that can't be sold — credit it anyway."* Subtitle: *Live on Coston2 · 141 tests · Audit-verified.*
+**VISUAL:** Black. CreditGate wordmark snaps on. One line types: *"XRP collateral that can't be sold — credit it anyway."* Subtitle: *Live on Coston2 · 146 tests · Audit-verified.*
 
 **NARRATOR:**
 > Billions in XRP sit on Flare as FXRP — earning peg yield, but never credit. CreditGate unlocks it. Live on Coston2 today.
@@ -61,10 +61,10 @@ A final card: *"Submit stage proven with real data. Retrieve stage awaiting Cost
 
 ## Scene 5 — CTA (10s, 1:10–1:20)
 
-**VISUAL:** Dark. CreditGate wordmark centers. Three lines type out: *"141 tests · 11 suites · 0 failures"*, *"97.75% coverage"*, *"Audit-verified"*. Final line: *"Built entirely on Flare — Flare Summer Signal, Bounty 2."* Flare logo bottom-right. Fade to black.
+**VISUAL:** Dark. CreditGate wordmark centers. Three lines type out: *"146 tests · 12 suites · 0 failures"*, *"97.75% coverage"*, *"Audit-verified"*. Final line: *"Built entirely on Flare — Flare Summer Signal, Bounty 2."* Flare logo bottom-right. Fade to black.
 
 **NARRATOR:**
-> CreditGate — private credit eligibility, public repayment verification, built entirely on Flare. One hundred forty-one tests across eleven suites, zero failures, audit-verified. The credit layer Flare has been missing.
+> CreditGate — private credit eligibility, public repayment verification, built entirely on Flare. One hundred forty-six tests across twelve suites, zero failures, audit-verified. The credit layer Flare has been missing.
 
 ---
 

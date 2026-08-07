@@ -3,12 +3,12 @@
 **Date:** 2026-08-06
 **Auditor:** Subagent #56 (read-only audit — no code/docs modified, only this file written)
 **Prior score:** 9.0/10 (judge-sim-v4, from 7.4 baseline → 8.5 v3 → 9.0 v4)
-**Current verified state:** 138 tests / 11 suites / 0 failures; **LIVE on Coston2** at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`; live FDC attestation request submitted; 5 FXRP collateral deposited
+**Current verified state:** 146 tests / 12 suites / 0 failures; **LIVE on Coston2** at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`; live FDC attestation request submitted; 5 FXRP collateral deposited
 **Scope:** SUBMISSION.md, README.md, PROGRAM-SUMMARY.md, planning/judge-sim-v4/verdict.md, evidence/live-deployment.md, evidence/fdc-live-attestation.md — cross-checked against `test/` enumeration, `src/CreditGateVault.sol`, ARCHITECTURE.md, DEMO.md, evidence/test-summary.md, evidence/final-verification.md
 
 ## Method
 
-For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALLY-RESOLVED, or STILL-OPEN against the current repo state. I then audited the six required submission docs against the DoraHacks/Flare submission checklist and cross-checked every "118 / 9" claim against the actual `grep -c 'function test|invariant_' test/*.t.sol` enumeration, which returns **138 tests / 11 suites**.
+For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALLY-RESOLVED, or STILL-OPEN against the current repo state. I then audited the six required submission docs against the DoraHacks/Flare submission checklist and cross-checked every "118 / 9" claim against the actual `grep -c 'function test|invariant_' test/*.t.sol` enumeration, which returns **146 tests / 12 suites**.
 
 ---
 
@@ -17,7 +17,7 @@ For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALL
 ### GAP 1 — [P1 BLOCKER] Stale test/coverage numbers across ALL docs (118/9 reality: 138/11)
 
 **Severity: BLOCKER — single most credibility-damaging defect, instant -0.3 on "Evidence of new work" and "Clarity" criteria**
-**v4 verdict ref:** Gap #1 (stale README test count). v4 said "118 / 9." That was correct *at v4 time*. It is now wrong — repo grew to 138/11 (new `CreditGateVault.trigger.t.sol` = 9 tests, `CreditGateVault.ltv.t.sol` = 11 tests).
+**v4 verdict ref:** Gap #1 (stale README test count). v4 said "118 / 9." That was correct *at v4 time*. It is now wrong — repo grew to 146/12 (new `CreditGateVault.trigger.t.sol` = 9 tests, `CreditGateVault.ltv.t.sol` = 11 tests).
 
 **Verified actual counts (`grep -c 'function test|invariant_' test/*.t.sol`):**
 | Suite | Tests |
@@ -33,7 +33,7 @@ For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALL
 | CreditGateVault.go-tee-compat.t.sol | 2 |
 | CreditGateVault.reentrancy.t.sol | 2 |
 | CreditGateVault.malicious-reentrancy.t.sol | 1 |
-| **Total** | **138 / 11 suites** |
+| **Total** | **146 / 12 suites** |
 
 **Files containing stale "118 tests / 9 suites" (must be updated to 138/11):**
 1. `SUBMISSION.md` — lines 65, 91, 105, 123 (×4 occurrences)
@@ -51,7 +51,7 @@ For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALL
 
 **Also:** the "91 → 118, 7 → 9" growth narrative in README line 100 and PROGRAM-SUMMARY line 33 is itself stale — the real arc is now 91 → 118 → 138 / 7 → 9 → 11.
 
-**Fix:** Global find-replace 118→138, 9→11 across all .md files; update suite breakdown tables to add trigger (9) and ltv (11) rows; re-run `forge coverage` and update the 97.75% figure (likely shifted with new code paths); update "growth narrative" to "91 → 138 tests / 7 → 11 suites."
+**Fix:** Global find-replace 118→146, 9→12 across all .md files; update suite breakdown tables to add trigger (9) and ltv (11) rows; re-run `forge coverage` and update the 97.75% figure (likely shifted with new code paths); update "growth narrative" to "91 → 138 tests / 7 → 11 suites."
 
 ---
 

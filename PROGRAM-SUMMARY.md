@@ -28,9 +28,9 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - `ARCHITECTURE.md` — EIP-191 payload, FDC flow, Flare primitive addresses
 - `DEMO.md` — 90-second demo script
 
-## Current State (141 tests, 11 suites, 0 failures)
-- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 8 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 11 LTV-config + 9 liquidation-trigger
-- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 141 tests / 7 → 11 suites):
+## Current State (146 tests, 12 suites, 0 failures)
+- 69 unit + 15 health-factor/view + 15 edge-case + 5 Dutch auction liquidation + 8 invariant/fuzz + 4 FDC fixture + 2 Go-TEE compat + 1 malicious-token reentrancy + 2 reentrancy/solvency/FTSO-edge + 11 LTV-config + 9 liquidation-trigger + 5 security-edge-case
+- **Newer features added beyond the M1 security sweep** (grew the suite 91 → 146 tests / 7 → 12 suites):
   1. **Dutch auction liquidation** — when `getHealthFactor` drops below 1.0, anyone can start a linear-decay Dutch auction (`startLiquidationAuction` → `bidOnLiquidation` → `finalizeAuction`); surplus refunds the borrower.
   2. **Interest rate mechanism** — 5% APR simple interest prorated by seconds since draw (`getInterestOwed`), enforced in the FDC repayment check so MemoData must cover principal + accrued interest; `InterestAccrued` emitted on close.
   3. **Health factor & loan/portfolio views** — `getHealthFactor` (collateral×1e18 / (principal+interest), gates liquidation), `getLoanSummary`, `getPortfolioSummary`.
@@ -64,6 +64,6 @@ Borrower deposits FXRP collateral on Flare Coston2 → FCC Go handler evaluates 
 - Chain ID: 114, RPC: https://coston2-api.flare.network/ext/C/rpc
 
 ## Build Commands
-- `forge test` — run all 141 tests across 11 suites
+- `forge test` — run all 146 tests across 12 suites
 - `cd frontend && npm run build` — build frontend
 - `cd fcc/credit-extension/extension && go run .` — start FCC handler (:8080, /health + /action)
