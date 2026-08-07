@@ -2,8 +2,8 @@
 // Auto-generated — do not edit by hand.
 export const TEST_SUMMARY_MD: string = `# Test Summary — CreditGateVault
 
-**Total tests: 141 · Test suites: 11 · Failures: 0 · Skipped: 0**
-**Command: \`forge test\` → "Ran 11 test suites … 141 tests passed, 0 failed, 0 skipped (141 total tests)"**
+**Total tests: 146 · Test suites: 12 · Failures: 0 · Skipped: 0**
+**Command: \`forge test\` → "Ran 12 test suites … 146 tests passed, 0 failed, 0 skipped (146 total tests)"**
 
 Verified 2026-08-05 on Foundry (solc 0.8.35) after a \`forge clean\` to flush the incremental
 build cache (see \`coverage-report.txt\` for the cache-quirk note).
@@ -25,12 +25,12 @@ build cache (see \`coverage-report.txt\` for the cache-quirk note).
 | 9 | \`CreditGateVaultAuctionTest\` | \`test/CreditGateVault.auction.t.sol\` | **5** | Dutch auction liquidation lifecycle: \`startLiquidationAuction\` (gated on health factor < 1.0), \`bidOnLiquidation\`, \`finalizeAuction\`, \`getAuctionPrice\` linear-decay math, surplus-to-borrower refund, bidder payment path. |
 | 10 | \`CreditGateVaultTriggerTest\` | \`test/CreditGateVault.trigger.t.sol\` | **9** | Automated FTSO-threshold liquidation trigger: \`checkAndTriggerLiquidation(loanId)\` (no-op when healthy / price zero / not funded / exactly at threshold; fires \`startLiquidationAuction\` when undercollateralized) and \`batchCheckLiquidation(loanIds)\` (empty-array no-op, only-unhealthy triggered, all-healthy returns empty). Includes \`triggeredAuctionIsFullyFunctional\` proving the auto-started auction runs through bid + finalize. |
 | 11 | \`CreditGateVaultLTVTest\` | \`test/CreditGateVault.ltv.t.sol\` | **11** | Per-collateral LTV ratio configuration: \`registerCollateral\` (owner-only access control, rejects zero address & invalid LTV band, emits \`CollateralRegistered\`), \`updateLTV\` (owner-only, rejects unknown collateral, emits \`LTVUpdated\`), \`getLTV\` default after construction, \`getMaxLoanAmount\` bounded by LTV at default vs. tightened cap, and \`drawLoan\` respecting a tightened LTV. Plus \`collateralDecimals\` defaults after construction. |
-| | **Total** | | **141** | |
+| | **Total** | | **146** | |
 
-> The breakdown adds to 141: 69 + 4 + 8 + 2 + 1 + 2 + 15 + 15 + 5 + 9 + 11. The \`69\` in suite 1 is the larger
+> The breakdown adds to 146: 69 + 4 + 8 + 2 + 1 + 2 + 15 + 15 + 5 + 9 + 11. The \`69\` in suite 1 is the larger
 > headline number sometimes described in the README as "unit" — the README buckets the
 > reentrancy/solvency/auction/views tests separately; the underlying per-file count is what \`forge test
-> --summary\` reports. Both framings agree on the **141-test total**.
+> --summary\` reports. Both framings agree on the **146-test total**.
 
 ---
 
@@ -69,7 +69,7 @@ For \`src/CreditGateVault.sol\` (the protocol contract):
 export PATH="$HOME/.foundry/bin:$PATH"
 cd /root/flare-hackathon/creditgate
 
-# Run all 141 tests
+# Run all 146 tests
 forge test
 
 # Per-suite breakdown (counts each suite's passed/failed/skipped)
@@ -89,8 +89,8 @@ forge test --match-test test_recoverDefaultedCollateral_happyPath
 If \`forge test\` ever surfaces a single "collateral" test failure that prints
 \`Error != expected error: InsufficientCollateral(2.5e24 …) != InsufficientCollateral(2.5e25 …)\`,
 that is a **stale Foundry build cache**, not a real failure. Run \`forge clean && forge cache
-clean\` once and re-run \`forge test\` — it will report **141 passed; 0 failed**. The root cause is
+clean\` once and re-run \`forge test\` — it will report **146 passed; 0 failed**. The root cause is
 Foundry's incremental solc cache serving a pre-decimal-fix bytecode artifact; it is a known
 Foundry quirk and is harmless. (Evidence of this exact resolution was produced by this
-subagent on 2026-08-05: \`forge clean\` → \`forge test\` → \`141 tests passed, 0 failed\`.)
+subagent on 2026-08-05: \`forge clean\` → \`forge test\` → \`146 tests passed, 0 failed\`.)
 `;
