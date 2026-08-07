@@ -6,7 +6,7 @@ issues. The audit's INFO-level observations (I1–I4) are documented in the verd
 action items requiring code changes; this file covers the action items (M1, M2, L1, L2, L4, L5).
 
 **Audit verdict file:** `planning/security-audit/verdict.md`
-**Final test status:** 159/159 passing, 13 suites, 0 failures (see `test-summary.md`).
+**Final test status:** 171/171 passing, 15 suites, 0 failures (see `test-summary.md`).
 
 ---
 
@@ -220,4 +220,4 @@ Re-binding after draw does NOT change the expected receiver."*
 | L4 | Low      | Defaulted collateral permanently locked in vault | `f7c18a4` | `test_recoverDefaultedCollateral_happyPath` + 2 access-control tests |
 | L5 | Low      | `registerXRPLAddress` re-bindable after draw | `2884cca` | `test_submitRepaymentProof_receiverMustMatchRegistration` |
 
-All commits are on the main branch of `git log` and reproduce to the 159/159 passing sweep (13 suites, 0 failures).
+All commits are on the main branch of `git log` and reproduce to the 171/171 passing sweep (15 suites, 0 failures).

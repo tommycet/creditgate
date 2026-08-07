@@ -6,7 +6,7 @@
 
 |  |  |  |  |  |
 |---|---|---|---|---|
-|| 🟢 **Live on Coston2** | ✅ **159 tests** | ✅ **8 invariants** | ✅ **4 Flare primitives** | ✅ **Source verified** ||
+|| 🟢 **Live on Coston2** | ✅ **171 tests** | ✅ **8 invariants** | ✅ **4 Flare primitives** | ✅ **Source verified** ||
 
 **Quick links:** [Vault on Coston2 Explorer](https://coston2-explorer.flare.network/address/0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939) · [Frontend /docs](frontend/src/app/docs/page.tsx) · [SUBMISSION.md](SUBMISSION.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [DEMO.md](DEMO.md)
 
@@ -58,7 +58,7 @@ Chain ID 114 · RPC `https://coston2-api.flare.network/ext/C/rpc` · Explorer `h
 ## Quick Start (3 commands)
 
 ```bash
-# 1. Contracts — 159 tests across 13 suites, 0 failures
+# 1. Contracts — 171 tests across 15 suites, 0 failures
 forge test
 
 # 2. Frontend — Next.js + wagmi + RainbowKit (http://localhost:3000)
@@ -88,7 +88,9 @@ CreditGateVault came in as a basic deposit/draw/repay prototype. During the Flar
 - **Per-collateral LTV ratio configuration** — `registerCollateral` / `updateLTV` / `getMaxLoanAmount` for multi-asset onboarding
 - **Health factor & portfolio views** — `getHealthFactor`, `getLoanSummary`, `getPortfolioSummary`
 - **Mock credit bureau in TEE** — reproducible off-chain evaluation; bureau output never exposed in cleartext, only signed attestation crosses the trust boundary
-- **159-test Foundry suite across 13 suites** (8 invariant/fuzz tests, cross-language Go-TEE ↔ Solidity compat, real malicious-token reentrancy attack)
+- **Borrower reputation tracking** — on-chain history (totalBorrowed, totalRepaid, loansCompleted, loansDefaulted) powering FCC credit scoring (Aave/ARCx pattern)
+- **24h grace period** — borrower protection before liquidation; 24-hour window after deadline prevents instant seizure (Aave V3/Compound V3 pattern)
+- **171-test Foundry suite across 15 suites** (8 invariant/fuzz tests, cross-language Go-TEE ↔ Solidity compat, real malicious-token reentrancy attack)
 - **React lifecycle UI** with a `/docs` section consolidating architecture, deployment, testing, security evidence
 - **Live deployment on Coston2** + source verified on Blockscout
 
@@ -106,7 +108,7 @@ Competitive intel gathered from the live DoraHacks BUIDL listing (see `planning/
 | 2 | **Only submission binding FCC (private eligibility) → FDC (public cross-chain verification)** in a single product flow. | `ARCHITECTURE.md` + state machine |
 | 3 | **Real reentrancy attack test** — malicious FXRP token invokes `depositCollateral` from `transferFrom`; blocked by `ReentrancyGuard`. | `test/CreditGateVault.malicious-reentrancy.t.sol` |
 | 4 | **Go-TEE ↔ Solidity cross-language compatibility** — 2 tests prove the Go handler's EIP-191 signature is accepted by Solidity `ecrecover`. | `test/CreditGateVault.go-tee-compat.t.sol` |
-| 5 | **159 tests / 13 suites + 8 invariant/fuzz + security audit clean** — all M1/M2/L1/L2/L4/L5 findings fixed. | `planning/security-audit/verdict.md` (PASS) + `forge test` |
+| 5 | **171 tests / 15 suites + 8 invariant/fuzz + security audit clean** — all M1/M2/L1/L2/L4/L5 findings fixed. | `planning/security-audit/verdict.md` (PASS) + `forge test` |
 | 6 | **Cross-chain repayment-substitution defense** — per-loan XRPL address snapshot + 32-byte domain-separated MemoData commitment. | `src/CreditGateVault.sol` + `ARCHITECTURE.md` |
 
 ---
@@ -117,7 +119,7 @@ Every claim is backed by a file a judge can open and run. Six planning review ve
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 159 across 13 suites, 0 failures |
+| Tests passing | 171 across 15 suites, 0 failures |
 | Line coverage | 97.75% of `CreditGateVault.sol` |
 | Invariant/fuzz tests | 8 (FXRP conservation, USDT0 solvency, no overdraft, state ordering, no ghost collateral, interest ceiling, LTV limit, terminal-loan finality) |
 | Go-TEE cross-language tests | 2 (Go signature → Solidity `ecrecover`) |
@@ -140,6 +142,8 @@ Key test files:
 | `test/CreditGateVault.ltv.t.sol` | 11 per-collateral LTV configuration tests |
 | `test/CreditGateVault.trigger.t.sol` | 9 automated FTSO-threshold liquidation trigger tests |
 | `test/CreditGateVault.security-edge.t.sol` | 5 critical security edge-case tests — negative FDC amount, cross-loan replay, past-deadline accrual, paused-vault liquidation, LTV non-retroactive |
+| `test/CreditGateVault.reputation.t.sol` | 5 borrower reputation tests — totalBorrowed/totalRepaid/loansCompleted/loansDefaulted tracking, getReputation view (Aave/ARCx pattern) |
+| `test/CreditGateVault.grace-period.t.sol` | 7 grace-period tests — 24h default window before liquidation, owner-only update, 30-day cap (Aave V3 / Compound V3 pattern) |
 | `evidence/tee-attestation.json` | Real attestation produced by the Go FCC handler (POST /action) |
 
 ---
