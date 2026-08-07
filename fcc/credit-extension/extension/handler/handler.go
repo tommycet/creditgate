@@ -15,6 +15,10 @@
 // Mode: SIMULATED_TEE — in the hackathon demo the signing key is a test ECDSA
 // key matching the vault's TEE_AUTHORITY. In production the key is generated
 // and held inside the TEE (see FCC Private Key Extension pattern).
+//
+// Reference implementation for local development and testing.
+// Production TEE deployment: fcc-handler/credit_tee_handler.py (GCP Confidential Space / Intel TDX)
+// Both produce identical EIP-191 signatures — see test/CreditGateVault.tee-compat.t.sol
 package handler
 
 import (

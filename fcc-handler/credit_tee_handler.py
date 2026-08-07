@@ -64,6 +64,9 @@ function returns True only when the enclave leads (`/proc/tdx-guest` /
 `/dev/tdx-guest` / the Confidential Space attestation token) are present;
 outside a TEE the handler still works in `SIMULATED_TEE` mode for tests.
 """
+# Companion handler: fcc/credit-extension/extension/handler/handler.go (Go reference impl for local dev)
+# This file: production TEE deployment (GCP Confidential Space / Intel TDX)
+# Both produce identical EIP-191 signatures — see test/CreditGateVault.tee-compat.t.sol
 
 from __future__ import annotations
 

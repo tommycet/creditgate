@@ -121,7 +121,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 1. **Dutch auction liquidation mechanism** — descending-price auction over 24h for under-collateralized loans
 2. **5% APR interest accrual** — pro-rata interest on outstanding loans, computed at draw/repay
 3. **Health factor** — real-time position health via FTSO price, triggers liquidation below 0.9
-4. **Go-based FCC credit evaluation handler — production-ready EIP-191 attestation signer**; runs as an FCC extension per Flare's official architecture. Deployed with simulated TEE attestation on Coston2 (hardware TEE requires mainnet FCC provider enrollment).
+4. **Go-based FCC credit evaluation handler — reference implementation for local development and EIP-191 compatibility testing**; runs as an FCC extension per Flare's official architecture. Deployed with simulated TEE attestation on Coston2 (hardware TEE requires mainnet FCC provider enrollment). Production TEE path: item 18 below.
 
 > **Two FCC paths now exist.** We now have TWO FCC paths: (1) the original Go handler for local testing, and (2) a Python TEE handler (`fcc-handler/`) deployable to GCP Confidential Space via Intel TDX, following Flare's official flare-ai-kit SDK patterns. The Python handler produces the same EIP-191 signed attestations but from inside a hardware TEE.
 5. **Automated FTSO-threshold liquidation trigger** — `checkAndTriggerLiquidation` + `batchCheckLiquidation` for keepers
@@ -137,7 +137,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 15. **Protocol reserve fund** — 1% fee on interest payments funds a backstop reserve; owner-withdrawable (Aave Safety Module pattern)
 16. **Borrower reputation tracking** — on-chain history (totalBorrowed, totalRepaid, loansCompleted, loansDefaulted) powering FCC credit scoring (Aave/ARCx pattern)
 17. **24h grace period** — borrower protection before liquidation; 24-hour window after deadline prevents instant seizure (Aave V3/Compound V3 pattern)
-18. **FCC TEE credit handler** — Python handler deployable to GCP Confidential Space (Intel TDX). Produces EIP-191 signed attestations from inside a real TEE enclave. Follows Flare's official flare-ai-kit SDK patterns. Closes the simulated TEE gap.
+18. **FCC TEE credit handler** — Production deployment path for the Go handler's TEE attestation logic: Python handler deployable to GCP Confidential Space (Intel TDX). Produces EIP-191 signed attestations from inside a real TEE enclave. Follows Flare's official flare-ai-kit SDK patterns. Closes the simulated TEE gap. See `fcc/README.md` for the full Go-vs-Python handler relationship and `test/CreditGateVault.tee-compat.t.sol` for the byte-identical-signature proof.
 19. **CreditScoreSBT** — Non-transferable soulbound ERC721 credit score token. Minted on first loan repayment, updated as reputation changes. Score 0-100. Portable credit passport across Flare dApps.
 20. **ContractRegistry integration** — dynamic FDC/FTSOV2 address lookups from Flare's on-chain ContractRegistry. Future-proofs the vault against protocol upgrades without redeployment.
 21. **Python TEE compatibility test** — `py-tee-compat.t.sol` proves the vault accepts EIP-191 signatures from the Python FCC TEE handler (deployable to GCP Confidential Space / Intel TDX), not just the Go handler. Closes the demonstrated-hardware-TEE gap.
