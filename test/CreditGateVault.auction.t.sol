@@ -149,7 +149,7 @@ contract CreditGateVaultAuctionTest is Test, CreditGateTypes {
         uint256 loanId = _setupLoanToFunded();
 
         // Warp past the loan deadline (LOAN_DURATION after draw).
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         // FTSO feed timestamp is now stale; refresh it so the auction starter
         // doesn't hit FTSOPriceStale.
         _refreshFtso();
@@ -205,7 +205,7 @@ contract CreditGateVaultAuctionTest is Test, CreditGateTypes {
 
     function test_bidOnLiquidation_succeeds() public {
         uint256 loanId = _setupLoanToFunded();
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         _refreshFtso();
 
         vm.prank(bidder);
@@ -254,7 +254,7 @@ contract CreditGateVaultAuctionTest is Test, CreditGateTypes {
 
     function test_finalizeAuction_withBids() public {
         uint256 loanId = _setupLoanToFunded();
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         _refreshFtso();
 
         vm.prank(bidder);
@@ -308,7 +308,7 @@ contract CreditGateVaultAuctionTest is Test, CreditGateTypes {
 
     function test_finalizeAuction_noBids() public {
         uint256 loanId = _setupLoanToFunded();
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         _refreshFtso();
 
         vm.prank(bidder);

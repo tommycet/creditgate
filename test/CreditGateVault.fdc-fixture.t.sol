@@ -257,7 +257,7 @@ contract CreditGateVaultFDCFixtureTest is Test {
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
 
         // Warp past deadline
-        vm.warp(loan.deadline + 1);
+        vm.warp(loan.deadline + 86_401);
 
         // No one submitted proof → liquidate
         vm.prank(lender);

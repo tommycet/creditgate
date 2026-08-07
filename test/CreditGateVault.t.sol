@@ -668,7 +668,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         // Warp past deadline
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
 
         vault.liquidate(loanId);
 
@@ -682,7 +682,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         uint256 loanId = _setupLoanToEligible();
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         vault.liquidate(loanId);
 
         // Owner recovers the seized collateral
@@ -697,7 +697,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         uint256 loanId = _setupLoanToEligible();
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         vault.liquidate(loanId);
 
         vm.prank(borrower1);
@@ -752,7 +752,7 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
 
         uint256 vaultBalBefore = fxrp.balanceOf(address(vault));
 
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         vault.liquidate(loanId);
 
         // Collateral stays in vault (not transferred out)

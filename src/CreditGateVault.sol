@@ -93,6 +93,12 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     /// @notice Accumulated FXRP held by the protocol as reserve (6 decimals).
     uint256 public protocolReserve;
 
+    // ═══════════════════ Grace Period (Aave V3 / Compound V3 borrower protection) ═══════════════════
+    /// @notice Grace period in seconds after the repayment deadline before a loan
+    ///         can be liquidated. Default 86_400 (24h). Prevents instant seizure
+    ///         on minor delays — standard borrower protection in Aave V3.
+    uint256 public gracePeriodSeconds = 86_400;
+
     // ═══════════════════ Borrower Reputation (discovery-81 quick win #2) ═══════════════════
     /// @notice Per-borrower on-chain reputation history, persisted across loans
     ///         (Aave wallet scoring / TrueFi credit history / ARCx credit scoring
@@ -659,6 +665,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
             revert InvalidLoanState(loan.state, LoanState.FUNDED);
         }
         if (block.timestamp < loan.deadline) revert DeadlineNotPassed();
+        // ── Grace period: borrower protection before seizure (Aave V3 pattern) ──
+        if (block.timestamp < loan.deadline + gracePeriodSeconds) {
+            revert GracePeriodNotElapsed(loan.deadline + gracePeriodSeconds - block.timestamp);
+        }
 
         uint256 collateralSeized = loan.collateralAmount;
         loan.collateralAmount = 0;
@@ -717,6 +727,20 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         emit ReserveBpsUpdated(oldBps, newBps);
     }
 
+    // ═══════════════════ Grace Period ═══════════════════
+
+    /// @notice Update the grace period (seconds before liquidation after deadline).
+    /// @dev    Only callable by `owner`. Max 30 days (2_592_000).
+    function updateGracePeriod(uint256 newSeconds) external onlyOwner {
+        require(newSeconds <= 2_592_000, "GracePeriodTooLong");
+        gracePeriodSeconds = newSeconds;
+    }
+
+    /// @notice Get the current grace period in seconds.
+    function getGracePeriod() external view returns (uint256) {
+        return gracePeriodSeconds;
+    }
+
     // ═══════════════════ Dutch Auction Liquidation ═══════════════════
 
     /// @notice Start a Dutch auction for an undercollateralized or expired loan.
@@ -729,6 +753,10 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         Loan storage loan = loans[loanId];
         if (loan.state != LoanState.FUNDED) revert NotInAuctionState();
         if (block.timestamp < loan.deadline) revert DeadlineNotPassed();
+        // ── Grace period: borrower protection before seizure (Aave V3 pattern) ──
+        if (block.timestamp < loan.deadline + gracePeriodSeconds) {
+            revert GracePeriodNotElapsed(loan.deadline + gracePeriodSeconds - block.timestamp);
+        }
 
         (uint256 fxrpPrice, ) =
             FtsoV2Interface(ftsoV2).getFeedByIdInWei{value: msg.value}(XRP_USD_FEED_ID);

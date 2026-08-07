@@ -270,7 +270,7 @@ contract CreditGateVaultViewsTest is Test, CreditGateTypes {
         assertEq(activeLoans, 1, "loan B is not FUNDED so must not be active");
 
         // Now liquidate loan A → [] of "active" must drop to 0 even though loanAmount stays.
-        vm.warp(block.timestamp + LOAN_DURATION + 1);
+        vm.warp(block.timestamp + LOAN_DURATION + 86_401);
         vault.liquidate(loanA);
 
         (uint256 totalCollateral2, uint256 totalBorrowed2, uint256 activeLoans2,) =

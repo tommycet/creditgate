@@ -353,7 +353,7 @@ contract CreditGateVaultSecurityEdgeTest is Test, CreditGateTypes {
         uint256 loanIdA = _setupFunded(borrower1, 0);
         CreditGateTypes.Loan memory loanA = vault.getLoan(loanIdA);
 
-        vm.warp(loanA.deadline + 1);
+        vm.warp(loanA.deadline + 86_401);
 
         // Pause the vault
         vault.pause();
@@ -403,7 +403,7 @@ contract CreditGateVaultSecurityEdgeTest is Test, CreditGateTypes {
         ftso.setValueInWei(XRP_PRICE_2_50, uint64(block.timestamp));
         uint256 loanIdB = _setupFunded(borrower2, 0);
         CreditGateTypes.Loan memory loanB = vault.getLoan(loanIdB);
-        vm.warp(loanB.deadline + 1);
+        vm.warp(loanB.deadline + 86_401);
         vm.prank(lender);
         vault.liquidate(loanIdB);
         assertEq(uint8(vault.getLoan(loanIdB).state), uint8(LoanState.DEFAULTED));

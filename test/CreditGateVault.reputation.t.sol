@@ -276,7 +276,7 @@ contract CreditGateVaultReputationTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
 
         // Advance past the deadline so `liquidate()` is callable.
-        vm.warp(loan.deadline + 1);
+        vm.warp(loan.deadline + 86_401);
 
         (, uint256 repaidBefore, uint256 completedBefore, uint256 defaultedBefore) =
             vault.getBorrowerReputation(borrower1);
@@ -337,7 +337,7 @@ contract CreditGateVaultReputationTest is Test, CreditGateTypes {
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanB, LOAN_100_USDT);
         CreditGateTypes.Loan memory loanBStored = vault.getLoan(loanB);
-        vm.warp(loanBStored.deadline + 1);
+        vm.warp(loanBStored.deadline + 86_401);
         vault.liquidate(loanB);
 
         // Final checkpoint — the view returns all four fields, accumulated across

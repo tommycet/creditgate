@@ -351,6 +351,10 @@ contract CreditGateTypes {
     /// @dev Reverts in `liquidate` / `startLiquidationAuction` when the loan
     ///      deadline has not yet passed (no early liquidation by deadline).
     error DeadlineNotPassed();
+
+    /// @notice Thrown when liquidation is attempted during the grace period.
+    /// @param remaining Seconds remaining until liquidation is permitted.
+    error GracePeriodNotElapsed(uint256 remaining);
     /// @dev Reverts in `drawLoan` when the borrower has not yet registered an XRPL
     ///      receiving address via `registerXRPLAddress`.
     error XRPLAddressNotRegistered();
