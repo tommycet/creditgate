@@ -38,6 +38,15 @@ yarn-error.log*
 *.dylib
 vendor/
 
+# Python (FCC TEE handler)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.python-version
+
 # IDE
 .vscode/
 .idea/

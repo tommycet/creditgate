@@ -1,0 +1,41 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Minimal pyproject.toml for the CreditGate FCC TEE handler
+#
+# Mirrors the flare-ai-kit dependency stack: a small set of mainstream EVM
+# packages, all wheels (no compilers needed at build time). The Dockerfile
+# installs these via `uv sync --no-dev --no-editable --no-install-project` so
+# the venv is locked for the reproducible Confidential Space image build.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[project]
+name = "creditgate-fcc-tee"
+version = "0.1.0"
+description = "CreditGate Flare Compute Extension — TEE credit handler (GCP Confidential Space / Intel TDX)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+dependencies = [
+    # EVM cryptography + signing (EIP-191 attestation) — eth_keys signs raw
+    # message hashes (sign_msg_hash) which exactly matches what the vault's
+    # ecrecover expects; eth_account would re-hash the prefix, breaking the
+    # signature. We mirror the Go handler's crypto.Sign(hash, key).
+    "eth-keys>=0.6,<0.7",
+    # Web3 client — getBorrowerReputation reads, keccak256
+    "web3>=7,<8",
+    # Pure-Python pycryptodome is pulled in transitively by web3 for the
+    # keccak impl; we add it explicitly so the wheel is deterministic.
+    "pycryptodome>=3.20,<4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["credit_tee_handler.py"]
+
+[tool.uv]
+# Keep the build sandbox clean and offline-friendly.
+no-build-isolation = false
