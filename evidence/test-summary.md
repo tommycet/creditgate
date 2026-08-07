@@ -1,7 +1,7 @@
 # Test Summary — CreditGateVault
 
-**Total tests: 171 · Test suites: 15 · Failures: 0 · Skipped: 0**
-**Command: `forge test` → "Ran 15 test suites … 171 tests passed, 0 failed, 0 skipped (171 total tests)"**
+**Total tests: 180 · Test suites: 16 · Failures: 0 · Skipped: 0**
+**Command: `forge test` → "Ran 16 test suites … 180 tests passed, 0 failed, 0 skipped (180 total tests)"**
 
 Verified 2026-08-05 on Foundry (solc 0.8.35) after a `forge clean` to flush the incremental
 build cache (see `coverage-report.txt` for the cache-quirk note).
@@ -27,12 +27,13 @@ build cache (see `coverage-report.txt` for the cache-quirk note).
 | 13 | `CreditGateVaultProtocolReserveTest` | `test/CreditGateVault.protocol-reserve.t.sol` | **13** | Protocol reserve fund: 1% fee on interest payments accrues to a backstop reserve (Aave Safety Module pattern), `getReserveBalance` accounting, `withdrawReserve` owner-only withdrawal, reserve caps, zero-fee edge cases, and accounting invariants across draw/repay/auction flows. Added by subagent #89. |
 | 14 | `CreditGateVaultReputationTest` | `test/CreditGateVault.reputation.t.sol` | **5** | Borrower reputation tracking: on-chain history of `totalBorrowed`, `totalRepaid`, `loansCompleted`, `loansDefaulted` updated across draw/repay/default/close; `getReputation(borrower)` view returns the credit profile; initial-state is all-zero; reputation accumulates correctly across a full borrow→repay lifecycle and a borrow→default lifecycle. Added by subagent #96 (Aave/ARCx pattern). |
 | 15 | `CreditGateVaultGracePeriodTest` | `test/CreditGateVault.grace-period.t.sol` | **7** | 24h grace period before liquidation (Aave V3 / Compound V3 pattern): default grace period is 24 hours after the repayment deadline; `getGracePeriod()` returns the configured window; `updateGracePeriod(seconds)` is `onlyOwner` (rejects zero down to allow-disable, capped at 30 days); within the grace window a past-deadline loan cannot be liquidated; once expired, liquidation resumes. Added by subagent #96. |
-| | **Total** | | **171** | |
+| 16 | `CreditScoreSBTTest` | `test/CreditScoreSBT.t.sol` | **9** | Non-transferable soulbound ERC721 credit score token (the on-chain "credit passport"): mint-on-first-repayment, update-on-subsequent-repayment, soulbound `_update` hook refuses transfers (only mint/burn allowed), score 0-100 reflects borrower reputation (loansCompleted/loansDefaulted/totalRepaid), only-vault-can-mint access control, `getScore` view, `tokenURI` data-URI, revert on unminted-token queries, and metadata structure assertion. Added by subagent #98. |
+| | **Total** | | **180** | |
 
-> The breakdown adds to 171: 69 + 4 + 8 + 2 + 1 + 2 + 15 + 15 + 5 + 9 + 11 + 5 + 13 + 5 + 7. The `69` in suite
+> The breakdown adds to 180: 69 + 4 + 8 + 2 + 1 + 2 + 15 + 15 + 5 + 9 + 11 + 5 + 13 + 5 + 7 + 9. The `69` in suite
 > 1 is the larger headline number sometimes described in the README as "unit" — the README buckets the
 > reentrancy/solvency/auction/views tests separately; the underlying per-file count is what `forge test
-> --summary` reports. Both framings agree on the **171-test total**.
+> --summary` reports. Both framings agree on the **180-test total**.
 
 ---
 
@@ -53,6 +54,7 @@ build cache (see `coverage-report.txt` for the cache-quirk note).
 13. **Protocol reserve (13)** — 1% fee on interest accrues to a backstop reserve (Aave Safety Module pattern); `getReserveBalance`, owner-only `withdrawReserve`, reserve caps, zero-fee edges, and accounting invariants across draw/repay/auction flows.
 14. **Borrower reputation (5)** — On-chain `totalBorrowed`/`totalRepaid`/`loansCompleted`/`loansDefaulted` accumulate over each borrow→repay/default cycle; `getReputation(borrower)` view powers the FCC credit-scoring model (Aave/ARCx pattern). Initial state is all-zero.
 15. **Grace period (7)** — 24-hour grace window after the repayment deadline prevents instant liquidation (Aave V3 / Compound V3 pattern); `updateGracePeriod` is `onlyOwner` with 30-day cap; default window is 24 h.
+16. **Credit score SBT (9)** — Non-transferable soulbound ERC721 credit-score token: minted on first repayment proof, updated on subsequent close, transfers blocked by `_update` hook override, score 0-100 mirrors reputation, only-vault-can-mint access control, `getScore`/`tokenURI` views, revert on unminted queries, metadata struct invariants.
 
 ---
 
@@ -75,7 +77,7 @@ For `src/CreditGateVault.sol` (the protocol contract):
 export PATH="$HOME/.foundry/bin:$PATH"
 cd /root/flare-hackathon/creditgate
 
-# Run all 171 tests
+# Run all 180 tests
 forge test
 
 # Per-suite breakdown (counts each suite's passed/failed/skipped)

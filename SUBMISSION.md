@@ -72,7 +72,7 @@ Borrower → Repay on XRPL → FDC Verifies Proof → Collateral Released
 
 Every claim is backed by a file a judge can open and run.
 
-- **171 tests across 15 suites, 0 failures** — `forge test` reproduces on camera
+- **180 tests across 16 suites, 0 failures** — `forge test` reproduces on camera
 - **97.75% line coverage** of `CreditGateVault.sol`
 - **5 security fixes audit-verified** — all M1/M2/L1/L2/L4/L5 findings remediated; `planning/security-audit/verdict.md` = PASS
 - **Go-TEE ↔ Solidity cross-language compatibility** — `test/CreditGateVault.go-tee-compat.t.sol` (2 tests): the Go handler's real EIP-191 signature is accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`
@@ -98,7 +98,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 
 | Metric | Value |
 |--------|-------|
-| Tests passing | 171 across 15 suites, 0 failures |
+| Tests passing | 180 across 16 suites, 0 failures |
 | Line coverage | 97.75% |
 | Flare primitives used | 4 — FAssets (FXRP) + FTSOv2 + FCC + FDC |
 | Security fixes | 5 (audit-verified: M1, M2, L1, L2, L4, L5) |
@@ -122,6 +122,8 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 2. **5% APR interest accrual** — pro-rata interest on outstanding loans, computed at draw/repay
 3. **Health factor** — real-time position health via FTSO price, triggers liquidation below 0.9
 4. **Go-based FCC credit evaluation handler — production-ready EIP-191 attestation signer**; runs as an FCC extension per Flare's official architecture. Deployed with simulated TEE attestation on Coston2 (hardware TEE requires mainnet FCC provider enrollment).
+
+> **Two FCC paths now exist.** We now have TWO FCC paths: (1) the original Go handler for local testing, and (2) a Python TEE handler (`fcc-handler/`) deployable to GCP Confidential Space via Intel TDX, following Flare's official flare-ai-kit SDK patterns. The Python handler produces the same EIP-191 signed attestations but from inside a hardware TEE.
 5. **Automated FTSO-threshold liquidation trigger** — `checkAndTriggerLiquidation` + `batchCheckLiquidation` for keepers
 6. **Per-collateral LTV ratio configuration** — `registerCollateral`, `updateLTV`, `getMaxLoanAmount`
 7. **8 invariant/fuzz tests** — FXRP conservation, USDT0 solvency, interest ceiling, LTV limit, terminal-loan finality
@@ -130,19 +132,21 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 10. **Source verified on Blockscout** — judges can inspect the verified Solidity source
 11. **3 adversarial security audits** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed
 12. **5 critical security edge-case tests** — negative FDC amount overflow, cross-loan proof replay, past-deadline interest accrual, paused-vault liquidation, LTV non-retroactive
-13. **171-test Foundry suite across 15 suites** — grew from 91 to 171 during the program
+13. **180-test Foundry suite across 16 suites** — grew from 91 to 180 during the program
 14. **Frontend /docs section** — consolidated evidence and reports into browseable Next.js pages
 15. **Protocol reserve fund** — 1% fee on interest payments funds a backstop reserve; owner-withdrawable (Aave Safety Module pattern)
 16. **Borrower reputation tracking** — on-chain history (totalBorrowed, totalRepaid, loansCompleted, loansDefaulted) powering FCC credit scoring (Aave/ARCx pattern)
 17. **24h grace period** — borrower protection before liquidation; 24-hour window after deadline prevents instant seizure (Aave V3/Compound V3 pattern)
+18. **FCC TEE credit handler** — Python handler deployable to GCP Confidential Space (Intel TDX). Produces EIP-191 signed attestations from inside a real TEE enclave. Follows Flare's official flare-ai-kit SDK patterns. Closes the simulated TEE gap.
+19. **CreditScoreSBT** — Non-transferable soulbound ERC721 credit score token. Minted on first loan repayment, updated as reputation changes. Score 0-100. Portable credit passport across Flare dApps.
 
 ## Team
 
-**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (171 tests / 15 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
+**Single developer** — architecture, Solidity (`CreditGateVault.sol`, types, mocks), the Go FCC credit-evaluation handler + EIP-191 signer, the Next.js + wagmi + RainbowKit frontend, the Foundry test suite (180 tests / 16 suites / 97.75% coverage), deployment scripts, and six planning review verdicts (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit). All work in this repository was authored during the Flare Summer Signal program window.
 
 ## Future Roadmap
 
-1. **Hackathon scope** — Simulated TEE + pre-captured FDC proof demo, deploy to Coston2
+1. **Hackathon scope** — Two FCC paths shipped (Go handler for local testnet + Python TEE handler for GCP Confidential Space via Intel TDX), pre-captured FDC proof demo, deployed to Coston2
 2. **Production FCC** — Migrate to real TEE attestation with key governance (rotation, revocation, multi-authority)
 3. **AI credit scoring** — FCC handler ingests an off-chain AI credit-scoring model inside the TEE for automated, private eligibility decisions (this aligns the project with the hackathon's "AI" tag without bolting AI into the contract layer)
 4. **ERC-3643 compliance** — Institutional compliance modules for regulated asset issuance, integrating permissioned FXRP transfers
@@ -153,11 +157,11 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 ## Repository
 
 **GitHub:** https://github.com/tommycet/creditgate
-*If the repo is set to private at judging time, contact via DoraHacks — it will be made public for the submission window. The repository contains the full Solidity vault, Foundry test suite (`forge test` → 171 tests / 15 suites / 0 failures), FCC Go handler, and Next.js frontend.)*
+*If the repo is set to private at judging time, contact via DoraHacks — it will be made public for the submission window. The repository contains the full Solidity vault, Foundry test suite (`forge test` → 180 tests / 16 suites / 0 failures), FCC Go handler, and Next.js frontend.)*
 
 **Quick start:**
 ```bash
-forge test                                       # 171 tests, 15 suites, 0 failures
+forge test                                       # 180 tests, 16 suites, 0 failures
 cd frontend && npm run dev                         # http://localhost:3000
 cd fcc/credit-extension/extension && go run .      # :8080 — POST /action → EIP-191 attestation
 ```
