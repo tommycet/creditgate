@@ -179,7 +179,8 @@ CreditGateVault is **deployed and live** on Coston2 (verified 2026-08-06). Vault
 | Coston2 vault/deposit/draw txs | `LIVE Coston2` | Deployed 2026-08-06 |
 | FCC eligibility | `SIMULATED TEE` | Simulated path, same EIP-191 signature shape |
 | XRPL payment | `LIVE XRPL TESTNET` | Live transaction captured |
-| FDC proof | `LIVE FDC` or `FDC FIXTURE` | Depends on verifier API access |
+| FDC attestation submit | `LIVE` | Real XRPL testnet tx → on-chain attestation, round 1417946 finalized |
+| FDC proof retrieve/verify | `INFRA-LIMITED` | Coston2 DA Layer doesn't index testXRP attestations |
 | Mocks in Foundry | `TEST FIXTURE` | Never presented as deployed evidence |
 
 ---

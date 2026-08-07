@@ -37,7 +37,7 @@
 
 1. **AegisFlow's narrative is sharper** (3-paragraph user-pain story; ERC-3643 compliance anchor).
 2. **FDC is a fixture, not live** — AegisFlow claims "verified by 100+ nodes"; our fixture-only step is the most exposed primitive-vs-competitor gap.
-3. **Deployed address placeholder** — README still shows `<DEPLOYED_ADDRESS>` (even field with AegisFlow, but unproven is where a deploy tips the score).
+3. ~~**Deployed address placeholder**~~ — **RESOLVED.** Vault deployed at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` on Coston2, source verified on Blockscout, 5 FXRP collateral deposited.
 
 ---
 
