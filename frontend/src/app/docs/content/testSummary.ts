@@ -3,7 +3,7 @@
 export const TEST_SUMMARY_MD: string = `# Test Summary — CreditGateVault
 
 **Total tests: 146 · Test suites: 12 · Failures: 0 · Skipped: 0**
-**Command: \`forge test\` → "Ran 12 test suites … 146 tests passed, 0 failed, 0 skipped (146 total tests)"**
+**Command: \`forge test\` → "Ran 13 test suites … 159 tests passed, 0 failed, 0 skipped (159 total tests)"**
 
 Verified 2026-08-05 on Foundry (solc 0.8.35) after a \`forge clean\` to flush the incremental
 build cache (see \`coverage-report.txt\` for the cache-quirk note).
@@ -69,7 +69,7 @@ For \`src/CreditGateVault.sol\` (the protocol contract):
 export PATH="$HOME/.foundry/bin:$PATH"
 cd /root/flare-hackathon/creditgate
 
-# Run all 146 tests
+# Run all 159 tests
 forge test
 
 # Per-suite breakdown (counts each suite's passed/failed/skipped)
@@ -92,5 +92,5 @@ that is a **stale Foundry build cache**, not a real failure. Run \`forge clean &
 clean\` once and re-run \`forge test\` — it will report **146 passed; 0 failed**. The root cause is
 Foundry's incremental solc cache serving a pre-decimal-fix bytecode artifact; it is a known
 Foundry quirk and is harmless. (Evidence of this exact resolution was produced by this
-subagent on 2026-08-05: \`forge clean\` → \`forge test\` → \`146 tests passed, 0 failed\`.)
+subagent on 2026-08-05: \`forge clean\` → \`forge test\` → \`159 tests passed, 0 failed\`.)
 `;
