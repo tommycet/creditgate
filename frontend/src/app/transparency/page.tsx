@@ -1,9 +1,93 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useReadContract } from "wagmi";
 import { formatUnits } from "viem";
-import { CREDIT_GATE_CONFIG, LOAN_STATES } from "@/config/contract";
+import { CREDIT_GATE_CONFIG } from "@/config/contract";
 import { CREDIT_GATE_ABI, ERC20_ABI } from "@/lib/abi";
+import { HealthFactorGauge } from "@/components/HealthFactorGauge";
+import { CollateralCoverageBar } from "@/components/CollateralCoverageBar";
+
+/**
+ * Loan tuple shape returned by `getLoan(uint256)`.
+ */
+interface LoanTuple {
+  borrower: string;
+  collateralAmount: bigint;
+  loanAmount: bigint;
+  requiredRepaymentDrops: bigint;
+  deadline: bigint;
+  eligibilityExpiry: bigint;
+  eligibilityNonce: number;
+  expectedCommitment: `0x${string}`;
+  state: number;
+  borrowerSourceAddressHash: `0x${string}`;
+}
+
+const MAX_UINT_256 =
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffn;
+
+/**
+ * LoanReader — child component that fetches the loan tuple for one loan id
+ * and lifts it up to the parent via useEffect. Returning `null` keeps the
+ * React tree flat: the children exist only to satisfy the rules-of-hooks
+ * constraint that we cannot call `useReadContract` in a loop inside the parent.
+ */
+function LoanReader({
+  loanId,
+  onLoan,
+}: {
+  loanId: bigint;
+  onLoan: (id: bigint, loan: LoanTuple | undefined) => void;
+}) {
+  const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
+  const { data } = useReadContract({
+    address: vaultAddress,
+    abi: CREDIT_GATE_ABI,
+    functionName: "getLoan",
+    args: [loanId],
+  });
+  useEffect(() => {
+    onLoan(loanId, data as unknown as LoanTuple | undefined);
+  }, [loanId, data, onLoan]);
+  return null;
+}
+
+/**
+ * HealthFactorReader — child that fetches `getHealthFactor(loanId)` and lifts
+ * the parsed ratio to the parent. Mirrors the HealthFactorBadge pattern on
+ * the app page, refetching every 15 s. Treats MaxUint256 as `undefined`
+ * (no debt — not contributing to the protocol gauge).
+ */
+function HealthFactorReader({
+  loanId,
+  onHF,
+}: {
+  loanId: bigint;
+  onHF: (id: bigint, hf: number | undefined) => void;
+}) {
+  const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
+  const { data } = useReadContract({
+    address: vaultAddress,
+    abi: CREDIT_GATE_ABI,
+    functionName: "getHealthFactor",
+    args: [loanId],
+    query: { refetchInterval: 15000 },
+  });
+  useEffect(() => {
+    if (data === undefined) {
+      onHF(loanId, undefined);
+      return;
+    }
+    const v = data as bigint;
+    if (v === MAX_UINT_256) {
+      onHF(loanId, undefined); // No outstanding debt.
+    } else {
+      onHF(loanId, Number(v) / 1e18);
+    }
+  }, [loanId, data, onHF]);
+  return null;
+}
 
 export default function TransparencyPage() {
   const vaultAddress = CREDIT_GATE_CONFIG.contracts.creditGateVault as `0x${string}`;
@@ -50,8 +134,89 @@ export default function TransparencyPage() {
   });
   const usdt0Balance = (usdt0BalanceRaw ?? 0n) as bigint;
 
+  // ---- Per-loan state lifted from children ----
+  // State keyed by loan id string (Map<bigint, ...> would re-create on every
+  // render; use an object whose keys are loan-id strings to keep the React
+  // state stable across renders).
+  const [loans, setLoans] = useState<Record<string, LoanTuple | undefined>>({});
+  const [hfs, setHfs] = useState<Record<string, number | undefined>>({});
+
+  // Stable useCallback-style updaters so children's useEffect deps stay stable.
+  const handleLoan = (id: bigint, loan: LoanTuple | undefined) => {
+    setLoans((prev) => {
+      const key = id.toString();
+      if (prev[key] === loan) return prev;
+      return { ...prev, [key]: loan };
+    });
+  };
+  const handleHF = (id: bigint, hf: number | undefined) => {
+    setHfs((prev) => {
+      const key = id.toString();
+      if (prev[key] === hf) return prev;
+      return { ...prev, [key]: hf };
+    });
+  };
+
+  // Build loan id list — only read up to N loans to keep the page light.
+  // Up to 50 covers the hackathon demo comfortably.
+  const totalLoans = nextLoanId ? Number(nextLoanId) - 1 : 0;
+  const loanIds = Array.from({ length: Math.min(totalLoans, 50) }, (_, i) =>
+    BigInt(i + 1)
+  );
+
+  // ---- Aggregate stats from the loan collection ----
+  let totalCollateral = 0n;     // FXRP collateral (1e6 scale) on FUNDED/AUCTION/REPAYMENT_PENDING loans
+  let totalBorrowed = 0n;       // USDT0 outstanding (1e18 scale)
+  let activeLoans = 0;
+  let fundedCount = 0;
+  let worstHF: number | undefined = undefined; // minimum finite HF across active loans
+
+  for (const id of loanIds) {
+    const loan = loans[id.toString()];
+    if (!loan) continue;
+    const state = loan.state;
+    if (state === 4 /* FUNDED */ || state === 9 /* AUCTION */ || state === 5 /* REPAYMENT_PENDING */) {
+      totalCollateral += loan.collateralAmount;
+      totalBorrowed += loan.loanAmount;
+      activeLoans += 1;
+    }
+    if (state === 4) fundedCount += 1;
+    if (state === 4 || state === 9) {
+      const hf = hfs[id.toString()];
+      if (hf !== undefined && Number.isFinite(hf)) {
+        worstHF = worstHF === undefined ? hf : Math.min(worstHF, hf);
+      }
+    }
+  }
+
+  // When no active loans exist, the protocol is fully collateralized (no debt).
+  // Pass `undefined` to the gauge so it shows the "—" loading/no-debt state
+  // with a friendly explanatory caption.
+  const protocolHF = activeLoans === 0 ? undefined : worstHF;
+
+  // Collateral value normalized to USDT0 scale (1e18). FXRP is 1e6 decimals,
+  // so we upscale by 10^12 for like-for-like comparison on the coverage bar.
+  // NB: this assumes 1 FXRP ≈ 1 USDT0 economically (true for the Coston2 demo).
+  // In production this would be multiplied by the FTSO XRP/USD price.
+  const collateralValue18 = totalCollateral * 10n ** 12n; // 1e6 → 1e18
+
+  // Optimization: only render HealthFactorReader children for loans we have
+  // already fetched and that are in FUNDED or AUCTION state.
+  const activeHFLoanIds = loanIds.filter((id) => {
+    const loan = loans[id.toString()];
+    return loan && (loan.state === 4 || loan.state === 9);
+  });
+
   return (
     <main className="min-h-screen bg-gray-950 text-white">
+      {/* Per-loan readers — these lift data up to the parent via state */}
+      {loanIds.map((id) => (
+        <LoanReader key={`loan-${id.toString()}`} loanId={id} onLoan={handleLoan} />
+      ))}
+      {activeHFLoanIds.map((id) => (
+        <HealthFactorReader key={`hf-${id.toString()}`} loanId={id} onHF={handleHF} />
+      ))}
+
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Transparency Dashboard</h1>
@@ -66,6 +231,69 @@ export default function TransparencyPage() {
         </div>
 
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* === NEW: Protocol Health Gauge + Collateral Coverage === */}
+          <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+            <h2 className="text-xl font-semibold mb-6">Protocol Health</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+              {/* Health Factor Gauge */}
+              <div className="flex flex-col items-center">
+                <HealthFactorGauge healthFactor={protocolHF} liquidationThreshold={1.0} />
+                <div className="mt-3 text-xs text-gray-500 text-center max-w-[260px]">
+                  {activeLoans === 0
+                    ? "No active loans — protocol is fully collateralised."
+                    : `Worst-case health factor across ${activeLoans} active loan${activeLoans === 1 ? "" : "s"}.`}
+                </div>
+              </div>
+
+              {/* Collateral Coverage Bar */}
+              <div className="flex flex-col justify-center">
+                <div className="text-sm text-gray-400 mb-2 uppercase tracking-wide">
+                  Collateral Coverage
+                </div>
+                <CollateralCoverageBar
+                  borrowed={activeLoans === 0 ? 0n : totalBorrowed}
+                  collateralValue={activeLoans === 0 ? 0n : collateralValue18}
+                  requiredCoverage={1.5}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* === NEW: Protocol Stats === */}
+          <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+            <h2 className="text-xl font-semibold mb-4">Protocol Stats</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-sm text-gray-400">Total Collateral Deposited</div>
+                <div className="text-lg font-semibold">
+                  {formatUnits(fxrpBalance, 6)} FXRP
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">vault FXRP balance</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">Total Loans Outstanding</div>
+                <div className="text-lg font-semibold">
+                  {formatUnits(totalBorrowed, 18)} USDT0
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">across {activeLoans} active loan{activeLoans === 1 ? "" : "s"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">Protocol Reserve Balance</div>
+                <div className="text-lg font-semibold">
+                  {formatUnits(usdt0Balance, 18)} USDT0
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">available for new loans</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">Active Loans</div>
+                <div className="text-lg font-semibold">
+                  {activeLoans}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">funded or auctioning</div>
+              </div>
+            </div>
+          </div>
+
           {/* Vault Status */}
           <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
             <h2 className="text-xl font-semibold mb-4">Vault Status</h2>
