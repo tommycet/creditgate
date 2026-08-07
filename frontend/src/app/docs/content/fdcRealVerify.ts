@@ -2,7 +2,7 @@
 // Auto-generated — do not edit by hand.
 export const FDC_REAL_VERIFY_MD: string = `# FDC Verify Path with Real XRPL Testnet Transaction
 
-**Status:** ⏳ In progress — steps 1-2 complete, step 3 (proof retrieval) pending FDC provider indexing.
+**Status:** ✅ Steps 1-2 complete (live XRPL tx → on-chain attestation) | ⚠️ Step 3 blocked — Coston2 DA Layer doesn't index \`testXRP\` attestations (infra limitation, not a code bug)
 
 ## Step 1: Real XRPL Testnet Payment ✅
 
