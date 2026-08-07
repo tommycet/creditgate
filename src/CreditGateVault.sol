@@ -92,9 +92,14 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
     mapping(address => bytes32) public borrowerXRPLAddressHash;
 
     // ═══════════════════ Protocol Reserve (Aave Safety Module pattern) ═══════════════════
-    /// @notice Protocol reserve fee in basis points (100 = 1%). Deducted from
-    ///         collateral released on each successful repayment and accumulated
-    ///         as a backstop fund — inspired by Aave's Safety Module.
+    /// @notice Protocol reserve fee in basis points (100 = 1%). Charged on the
+    ///         INTEREST-equivalent collateral on each successful repayment
+    ///         (Bug 2 fix — was previously 1% of the full collateral, which
+    ///         penalised early repayers). Interest accrual is itself capped at
+    ///         `loanDuration` (Bug 1 fix), so the fee is bounded by
+    ///         `protocolReserveBps / 10000` of one full loan period's
+    ///         interest-equivalent FXRP. Accumulated as a backstop reserve,
+    ///         owner-withdrawable. 0 when interest is 0 (early repayment).
     uint256 public protocolReserveBps = 100;
     /// @notice Accumulated FXRP held by the protocol as reserve (6 decimals).
     uint256 public protocolReserve;
@@ -690,10 +695,36 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         proofConsumed[proofHash] = true;
 
         // ── Protocol reserve fee (Aave Safety Module pattern) ──
-        // Deduct protocolReserveBps from collateral released on repayment.
-        // The fee stays in the vault as a backstop fund; owner can withdraw.
+        // Bug 2 fix: the fee is charged on the INTEREST-equivalent collateral
+        // portion only — NOT on the entire collateral. Before this fix the vault
+        // skimmed 1% of ALL deposited FXRP regardless of elapsed time, so a
+        // borrower who repaid immediately (zero interest) still lost 1% of their
+        // deposit. The intent of an Aave-style reserve is to tax *yield*, i.e.
+        // the interest the borrower paid, and route it to a backstop fund.
+        //
+        // Math:
+        //   interestUSDT0      = getInterestOwed(loanId)          (USDT0 18dp)
+        //   interestInCollat   = interestUSDT0 * requiredRepaymentDrops             // price-derived conversion of the
+        //                       / loanAmount                                        interest into the collateral
+        //                                                                          token's units (FXRP drops). Mirrors
+        //                                                                          the interestDrops conversion already
+        //                                                                          used for the repayment check above.
+        //   fee                = interestInCollat * protocolReserveBps / 10000     (1% of the interest-equivalent only)
+        //   collateralReleased = collateralAmount - fee                             (≈ full collateral if interest ≈ 0)
+        //
+        // Edge cases:
+        //   - Early/immediate repayment (interest == 0) → fee == 0 → full collateral released.
+        //   - Max-accrued repayment (elapsed >= loanDuration) → 1% of one period's interest-equivalent.
         uint256 collateralAmount = loan.collateralAmount;
-        uint256 fee = (collateralAmount * protocolReserveBps) / 10000;
+        uint256 fee;
+        {
+            uint256 interestUSDT0 = getInterestOwed(loanId);
+            if (interestUSDT0 != 0 && loan.loanAmount != 0) {
+                uint256 interestInCollateral =
+                    (interestUSDT0 * loan.requiredRepaymentDrops) / loan.loanAmount;
+                fee = (interestInCollateral * protocolReserveBps) / 10000;
+            }
+        }
         uint256 collateralReleased = collateralAmount - fee;
         protocolReserve += fee;
 
@@ -769,6 +800,36 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         // ── Borrower reputation: bump loansDefaulted on deadline-default (discovery-81 #2) ──
         borrowerReputation[loan.borrower].loansDefaulted += 1;
         emit BorrowerReputationUpdated(loan.borrower, 2 /* DEFAULTED */, collateralSeized);
+
+        // ── Bug 4 fix: SBT must update on default, not just on repayment ──
+        // Before this fix, `liquidate` bumped `loansDefaulted` but never pushed the
+        // new score to the CreditScoreSBT — a defaulted borrower's on-chain credit
+        // passport was stale (still showing the pre-default score), defeating the
+        // purpose of an SBT that follows the borrower across Flare dApps. The
+        // `checkAndTriggerLiquidation` and batch paths already route through
+        // `_startLiquidation`, which should also update the SBT (see below). This
+        // `liquidate()` branch mirrors the SBT block in `submitRepaymentProof` —
+        // identical formula, identical clamps, identical SBT call — only the input
+        // counters differ (here `loansDefaulted` was just bumped).
+        {
+            BorrowerReputation storage rep = borrowerReputation[loan.borrower];
+            int256 raw = 50
+                + int256(uint256(rep.loansCompleted)) * 10
+                - int256(uint256(rep.loansDefaulted)) * 25;
+            if (rep.totalBorrowed > 0) {
+                raw += int256((rep.totalRepaid * 20) / rep.totalBorrowed);
+            }
+            if (raw < 0) raw = 0;
+            if (raw > 100) raw = 100;
+            creditScoreSBT.mintOrUpdate(
+                loan.borrower,
+                uint256(raw),
+                rep.loansCompleted,
+                rep.loansDefaulted,
+                rep.totalBorrowed,
+                rep.totalRepaid
+            );
+        }
 
         emit LoanDefaulted(loanId, loan.borrower, collateralSeized);
     }
@@ -1065,6 +1126,13 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         uint256 elapsed = block.timestamp > startTime
             ? block.timestamp - startTime
             : 0;
+        // Bug 1 fix: cap interest accrual at the loan's lifetime. Without this,
+        // interest grows forever past the deadline (a borrower who repays very
+        // late would owe unbounded interest; and a defaulted loan still reports
+        // growing interest despite the position having matured). Cap `elapsed`
+        // at `loanDuration` so the maximum accrued interest is exactly
+        // `loanAmount * INTEREST_RATE_BPS / 10000` — one period's worth.
+        elapsed = elapsed > loanDuration ? loanDuration : elapsed;
         return
             (loan.loanAmount * INTEREST_RATE_BPS * elapsed) /
             (10000 * SECONDS_PER_YEAR);
@@ -1339,6 +1407,32 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         // not `msg.sender` — the keeper that pulls the trigger is not the defaulter.
         borrowerReputation[loan.borrower].loansDefaulted += 1;
         emit BorrowerReputationUpdated(loan.borrower, 2 /* DEFAULTED */, startPrice);
+
+        // ── Bug 4 fix: SBT must update on default, not just on repayment ──
+        // Mirror of the SBT block in `liquidate()` — the auction-led default path
+        // (auto FTSO trigger / keeper batch) must also push the lowered score to
+        // the CreditScoreSBT, otherwise the borrower's on-chain credit passport
+        // lags reality and frontends reading the SBT see the old (pre-default)
+        // score. Identical formula/clamps to the repayment block.
+        {
+            BorrowerReputation storage rep = borrowerReputation[loan.borrower];
+            int256 raw = 50
+                + int256(uint256(rep.loansCompleted)) * 10
+                - int256(uint256(rep.loansDefaulted)) * 25;
+            if (rep.totalBorrowed > 0) {
+                raw += int256((rep.totalRepaid * 20) / rep.totalBorrowed);
+            }
+            if (raw < 0) raw = 0;
+            if (raw > 100) raw = 100;
+            creditScoreSBT.mintOrUpdate(
+                loan.borrower,
+                uint256(raw),
+                rep.loansCompleted,
+                rep.loansDefaulted,
+                rep.totalBorrowed,
+                rep.totalRepaid
+            );
+        }
 
         emit LiquidationAuctionStarted(loanId, loan.borrower, startPrice, uint64(block.timestamp));
     }

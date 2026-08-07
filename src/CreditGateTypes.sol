@@ -266,8 +266,10 @@ contract CreditGateTypes {
     );
 
     // ── Protocol reserve events (Aave Safety Module pattern) ──
-    /// @notice Emitted when a protocol reserve fee is deducted from collateral
-    ///         released on a successful repayment. `fee` is in FXRP (6 decimals).
+    /// @notice Emitted when a protocol reserve fee is deducted on a successful
+    ///         repayment. The fee is charged on the INTEREST-equivalent
+    ///         collateral (Bug 2 fix), in FXRP (6 decimals). It is 0 when no
+    ///         interest has accrued (early/immediate repayment).
     event ProtocolReserveFee(uint256 indexed loanId, uint256 fee);
 
     /// @notice Emitted when the owner withdraws accumulated protocol reserve FXRP.

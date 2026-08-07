@@ -11,7 +11,12 @@ import {IXRPPayment} from "@flarenetwork/flare-periphery-contracts/src/coston2/I
 import {IXRPPaymentVerification} from "@flarenetwork/flare-periphery-contracts/src/coston2/IXRPPaymentVerification.sol";
 
 /// @title CreditGateVault.ProtocolReserve — Tests for protocol reserve fund
-/// @dev Inspired by Aave's Safety Module. 1% fee on repayment collateral.
+/// @dev Inspired by Aave's Safety Module. Fee is charged on the INTEREST-
+///      equivalent collateral (Bug 2 fix): 1% of accrued interest converted
+///      to FXRP units. With early/immediate repayment (interest == 0) the fee
+///      is 0 and the borrower gets the full collateral back. Interest accrual
+///      itself is capped at `loanDuration` (Bug 1 fix), so the fee is bounded
+///      by 1% of one full loan period's interest-equivalent collateral.
 contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
     CreditGateVault public vault;
 
@@ -161,7 +166,26 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         assertEq(vault.protocolReserveBps(), 100, "default BPS should be 100 (1%)");
     }
 
-    /// @notice Repay a loan → reserve accumulates 1% of collateral.
+    /// @dev Compute the expected reserve fee on a repaid loan, mirroring the
+    ///      contract's fee-on-interest math (Bug 2 fix). The fee is 1% of the
+    ///      INTEREST-equivalent collateral, NOT 1% of the collateral itself.
+    ///      Also mirrors the Bug 1 cap (interest accrual stops at loanDuration).
+    ///      Must be called BEFORE the loan is CLOSED (state = FUNDED).
+    function _expectedFeeOnInterest(uint256 loanId) internal view returns (uint256) {
+        // `getInterestOwed` already implements the Bug 1 cap, so for a FUNDED loan
+        // we can rely on it directly.
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        if (interestUSDT0 == 0) return 0;
+        CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        if (loan.loanAmount == 0) return 0;
+        uint256 interestInCollateral =
+            (interestUSDT0 * loan.requiredRepaymentDrops) / loan.loanAmount;
+        return (interestInCollateral * vault.protocolReserveBps()) / 10000;
+    }
+
+    /// @notice Repay a loan → reserve accumulates fee-on-interest. With
+    ///         immediate repayment (interest == 0) the fee is 0; we warp to
+    ///         the deadline to make the fee non-zero and verify it accumulates.
     function test_protocolReserve_accumulatesOnRepayment() public {
         uint256 loanId = _setupLoanToEligible();
 
@@ -169,13 +193,21 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        uint256 expectedFee = (loan.collateralAmount * 100) / 10000; // 1%
+        // Warp to the deadline so interest accrues (Bug 1 cap = full period).
+        vm.warp(loan.deadline);
+        uint256 expectedFee = _expectedFeeOnInterest(loanId);
+        assertGt(expectedFee, 0, "warp should make interest (and fee) non-zero");
 
-        // Build repayment proof
+        // Build repayment proof with the required drops + interest
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
+            loan.loanAmount;
+        uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
+
         bytes32 memoHash = loan.expectedCommitment;
         bytes32 receiverHash = keccak256("rCreditGateBorrower1");
-        uint256 requiredDrops = loan.requiredRepaymentDrops;
-        IXRPPayment.Proof memory proof = _buildProof(requiredDrops, memoHash, receiverHash);
+        IXRPPayment.Proof memory proof =
+            _buildProof(requiredWithInterest, memoHash, receiverHash);
 
         fdc.setResult(true);
 
@@ -187,11 +219,13 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         assertEq(
             vault.protocolReserve(),
             reserveBefore + expectedFee,
-            "reserve should accumulate fee"
+            "reserve should accumulate fee-on-interest"
         );
     }
 
-    /// @notice Borrower receives collateral minus the 1% fee.
+    /// @notice Borrower receives collateral minus the fee-on-interest. With
+    ///         immediate repayment (interest==0) the fee is 0 and the borrower
+    ///         gets the full deposit back.
     function test_protocolReserve_borrowerReceivesLess() public {
         uint256 loanId = _setupLoanToEligible();
 
@@ -199,13 +233,20 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        uint256 expectedFee = (loan.collateralAmount * 100) / 10000;
+        // Warp to the deadline so interest accrues -> fee is non-zero.
+        vm.warp(loan.deadline);
+        uint256 expectedFee = _expectedFeeOnInterest(loanId);
         uint256 expectedRelease = loan.collateralAmount - expectedFee;
+
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
+            loan.loanAmount;
+        uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
 
         bytes32 memoHash = loan.expectedCommitment;
         bytes32 receiverHash = keccak256("rCreditGateBorrower1");
-        uint256 requiredDrops = loan.requiredRepaymentDrops;
-        IXRPPayment.Proof memory proof = _buildProof(requiredDrops, memoHash, receiverHash);
+        IXRPPayment.Proof memory proof =
+            _buildProof(requiredWithInterest, memoHash, receiverHash);
 
         fdc.setResult(true);
 
@@ -217,7 +258,7 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         assertEq(
             fxrp.balanceOf(borrower1),
             fxrpBalBefore + expectedRelease,
-            "borrower gets collateral minus fee"
+            "borrower gets collateral minus fee-on-interest"
         );
     }
 
@@ -229,12 +270,19 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        uint256 expectedFee = (loan.collateralAmount * 100) / 10000;
+        // Warp to the deadline so interest accrues -> fee is non-zero -> event fires.
+        vm.warp(loan.deadline);
+        uint256 expectedFee = _expectedFeeOnInterest(loanId);
+
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
+            loan.loanAmount;
+        uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
 
         bytes32 memoHash = loan.expectedCommitment;
         bytes32 receiverHash = keccak256("rCreditGateBorrower1");
-        uint256 requiredDrops = loan.requiredRepaymentDrops;
-        IXRPPayment.Proof memory proof = _buildProof(requiredDrops, memoHash, receiverHash);
+        IXRPPayment.Proof memory proof =
+            _buildProof(requiredWithInterest, memoHash, receiverHash);
 
         fdc.setResult(true);
 
@@ -246,16 +294,21 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
 
     /// @notice Non-owner cannot withdraw reserve.
     function test_protocolReserve_onlyOwnerCanWithdraw() public {
-        // First, accumulate some reserve
+        // First, accumulate some reserve by repaying after the deadline (interest>0).
         uint256 loanId = _setupLoanToEligible();
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
+        vm.warp(loan.deadline);
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
+            loan.loanAmount;
+        uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
         bytes32 memoHash = loan.expectedCommitment;
         bytes32 receiverHash = keccak256("rCreditGateBorrower1");
-        uint256 requiredDrops = loan.requiredRepaymentDrops;
-        IXRPPayment.Proof memory proof = _buildProof(requiredDrops, memoHash, receiverHash);
+        IXRPPayment.Proof memory proof =
+            _buildProof(requiredWithInterest, memoHash, receiverHash);
         fdc.setResult(true);
 
         vm.prank(borrower1);
@@ -271,18 +324,23 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
 
     /// @notice Owner can withdraw reserve and receives correct FXRP amount.
     function test_protocolReserve_withdrawTransfersCorrectly() public {
-        // Accumulate reserve
+        // Accumulate reserve by repaying after the deadline (interest>0 -> fee>0).
         uint256 loanId = _setupLoanToEligible();
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
-        uint256 expectedFee = (loan.collateralAmount * 100) / 10000;
+        vm.warp(loan.deadline);
+        uint256 expectedFee = _expectedFeeOnInterest(loanId);
 
+        uint256 interestUSDT0 = vault.getInterestOwed(loanId);
+        uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
+            loan.loanAmount;
+        uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
         bytes32 memoHash = loan.expectedCommitment;
         bytes32 receiverHash = keccak256("rCreditGateBorrower1");
-        uint256 requiredDrops = loan.requiredRepaymentDrops;
-        IXRPPayment.Proof memory proof = _buildProof(requiredDrops, memoHash, receiverHash);
+        IXRPPayment.Proof memory proof =
+            _buildProof(requiredWithInterest, memoHash, receiverHash);
         fdc.setResult(true);
 
         vm.prank(borrower1);
@@ -358,19 +416,39 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
         );
     }
 
-    /// @notice Multiple repayments accumulate reserve correctly.
+    /// @notice Multiple repayments accumulate reserve correctly. Each loan is
+    ///         repaid after warping to its deadline so interest (and the fee)
+    ///         is non-zero (Bug 2 fix: fee is on interest-equivalent collateral).
     function test_protocolReserve_accumulatesAcrossLoans() public {
-        // Loan 1
+        bytes32 receiverHash = keccak256("rCreditGateBorrower1");
+
+        // Draw BOTH loans while the FTSO feed is fresh (block.timestamp still
+        // matches the setUp warp), THEN warp each loan to its own deadline to
+        // accrue interest before repaying. Drawing after the first warp would
+        // trip the FTSO-staleness guard (the feed timestamp is fixed in setUp).
         uint256 loanId1 = _setupLoanToEligible();
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId1, LOAN_100_USDT);
-
         CreditGateTypes.Loan memory loan1 = vault.getLoan(loanId1);
-        uint256 fee1 = (loan1.collateralAmount * 100) / 10000;
 
-        bytes32 memoHash1 = loan1.expectedCommitment;
-        bytes32 receiverHash = keccak256("rCreditGateBorrower1");
-        IXRPPayment.Proof memory proof1 = _buildProof(loan1.requiredRepaymentDrops, memoHash1, receiverHash);
+        uint256 loanId2 = _setupLoanToEligible();
+        vm.prank(borrower1);
+        vault.drawLoan{value: 0}(loanId2, LOAN_100_USDT);
+        CreditGateTypes.Loan memory loan2 = vault.getLoan(loanId2);
+
+        // Loan 1 — warp to its deadline so interest (and fee) is non-zero.
+        vm.warp(loan1.deadline);
+        uint256 fee1 = _expectedFeeOnInterest(loanId1);
+        assertGt(fee1, 0, "loan1 fee should be non-zero at the deadline");
+
+        uint256 interest1 = vault.getInterestOwed(loanId1);
+        uint256 interestDrops1 =
+            (interest1 * loan1.requiredRepaymentDrops) / loan1.loanAmount;
+        IXRPPayment.Proof memory proof1 = _buildProof(
+            loan1.requiredRepaymentDrops + interestDrops1,
+            loan1.expectedCommitment,
+            receiverHash
+        );
         fdc.setResult(true);
 
         vm.prank(borrower1);
@@ -378,16 +456,22 @@ contract CreditGateVaultProtocolReserveTest is Test, CreditGateTypes {
 
         assertEq(vault.protocolReserve(), fee1, "first fee accumulated");
 
-        // Loan 2
-        uint256 loanId2 = _setupLoanToEligible();
-        vm.prank(borrower1);
-        vault.drawLoan{value: 0}(loanId2, LOAN_100_USDT);
+        // Loan 2 — warp to its deadline. (Both loans have the same deadline
+        // since they were drawn at the same block, so the warp is a no-op, but
+        // the math is identical and the test stays correct if draws are ever
+        // separated by time.)
+        vm.warp(loan2.deadline);
+        uint256 fee2 = _expectedFeeOnInterest(loanId2);
+        assertGt(fee2, 0, "loan2 fee should be non-zero at the deadline");
 
-        CreditGateTypes.Loan memory loan2 = vault.getLoan(loanId2);
-        uint256 fee2 = (loan2.collateralAmount * 100) / 10000;
-
-        bytes32 memoHash2 = loan2.expectedCommitment;
-        IXRPPayment.Proof memory proof2 = _buildProof(loan2.requiredRepaymentDrops, memoHash2, receiverHash);
+        uint256 interest2 = vault.getInterestOwed(loanId2);
+        uint256 interestDrops2 =
+            (interest2 * loan2.requiredRepaymentDrops) / loan2.loanAmount;
+        IXRPPayment.Proof memory proof2 = _buildProof(
+            loan2.requiredRepaymentDrops + interestDrops2,
+            loan2.expectedCommitment,
+            receiverHash
+        );
         fdc.setResult(true);
 
         vm.prank(borrower1);

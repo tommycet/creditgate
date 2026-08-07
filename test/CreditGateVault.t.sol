@@ -890,8 +890,13 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         loan = vault.getLoan(loanId);
         assertEq(uint8(loan.state), uint8(LoanState.CLOSED));
         assertEq(loan.collateralAmount, 0);
-        // 1% protocol reserve fee applied on repayment
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6);
+        // Bug 2 fix: protocol reserve fee is now 1% of the INTEREST-equivalent
+        // collateral, NOT 1% of the entire deposit. With immediate repayment
+        // (elapsed == 0) interest is 0, fee is 0, so the borrower gets the FULL
+        // 100 FXRP collateral back. Previously the contract deducted 1e6 (1% of
+        // collateral) regardless of interest accrued.
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP);
+        assertEq(vault.protocolReserve(), 0, "no fee when interest is 0");
     }
 
     function test_submitRepaymentProof_revertsIfFDCFails() public {
@@ -1200,12 +1205,24 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
-        // Warp forward exactly one year: simple interest = 5% of 100 USDT0 = 5e18.
-        vm.warp(block.timestamp + 365 days);
-        uint256 expectedInterest = (LOAN_100_USDT * 500 * (365 days)) /
+        // Bug 1 fix: interest is capped at `loanDuration` (LOAN_DURATION = 7 days
+        // in this suite). Warping past the loan's lifetime yields the SAME interest
+        // as warping to exactly the deadline — the cap stops the linear accrual at
+        // one loan period. We verify both sides of the cap in one test: warp FORWARD
+        // of the deadline, then warp back to exactly the deadline, both must agree.
+        vm.warp(block.timestamp + LOAN_DURATION);
+        // Simple interest for ONE full loan period:
+        //   interest = loanAmount * INTEREST_RATE_BPS * LOAN_DURATION / (10000 * SECONDS_PER_YEAR)
+        uint256 expectedInterest = (LOAN_100_USDT * 500 * LOAN_DURATION) /
             (10000 * 365 days);
-        assertEq(expectedInterest, 5e18);
-        assertEq(vault.getInterestOwed(loanId), expectedInterest);
+        assertEq(vault.getInterestOwed(loanId), expectedInterest,
+            "interest at deadline must equal one full period's accrual");
+        assertEq(vault.getTotalRepayment(loanId), LOAN_100_USDT + expectedInterest);
+
+        // Warp further (past the deadline) — interest MUST NOT grow beyond the cap.
+        vm.warp(block.timestamp + 365 days);
+        assertEq(vault.getInterestOwed(loanId), expectedInterest,
+            "interest must be capped at loanDuration, not grow past it");
         assertEq(vault.getTotalRepayment(loanId), LOAN_100_USDT + expectedInterest);
     }
 
@@ -1235,16 +1252,17 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
-        // Warp one year: 5e18 USDT0 interest → interest in drops:
+        // Warp to the deadline (elapsed == LOAN_DURATION). Bug 1 fix: interest is
+        // capped at `loanDuration`, so the cap matches the linear formula exactly
+        // here. interest in USDT0 drops to:
+        //   interestUSDT0 = 100e18 * 500 * 7 days / (10000 * 365 days) ≈ 0.09589e18
         // interestDrops = interestUSDT0 * requiredRepaymentDrops / loanAmount
-        //              = 5e18 * 40e6 / 100e18 = 2e6 drops.
-        vm.warp(block.timestamp + 365 days);
+        //              = interestUSDT0 * 40e6 / 100e18.
+        vm.warp(block.timestamp + LOAN_DURATION);
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
         uint256 interestUSDT0 = vault.getInterestOwed(loanId);
-        assertEq(interestUSDT0, 5e18);
         uint256 interestDrops = (interestUSDT0 * loan.requiredRepaymentDrops) /
             loan.loanAmount;
-        assertEq(interestDrops, 2e6);
         uint256 requiredWithInterest = loan.requiredRepaymentDrops + interestDrops;
 
         // Pay only the principal drops → must revert with the higher requirement.
@@ -1270,7 +1288,15 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         vm.prank(borrower1);
         vault.drawLoan{value: 0}(loanId, LOAN_100_USDT);
 
-        vm.warp(block.timestamp + 365 days);
+        // Warp to the loan deadline (elapsed == LOAN_DURATION). Bug 1 fix: interest
+        // is capped at `loanDuration`, so this is the MAXIMUM interest a loan can
+        // accrue. Bug 2 fix: the protocol reserve fee is now charged on the
+        // INTEREST-equivalent collateral, not the full collateral, so:
+        //   interestUSDT0        = getInterestOwed(loanId)
+        //   interestInCollateral = interestUSDT0 * requiredRepaymentDrops / loanAmount
+        //   fee                  = interestInCollateral * 100 / 10000
+        //   returned to borrower  = collateralAmount - fee
+        vm.warp(block.timestamp + LOAN_DURATION);
         CreditGateTypes.Loan memory loan = vault.getLoan(loanId);
         uint256 interestDrops = (vault.getInterestOwed(loanId) *
             loan.requiredRepaymentDrops) / loan.loanAmount;
@@ -1288,11 +1314,20 @@ contract CreditGateVaultTest is Test, CreditGateTypes {
         emit CreditGateTypes.InterestAccrued(loanId, expectedInterest);
 
         uint256 fxrpBalBefore = fxrp.balanceOf(borrower1);
+
+        // Compute the expected collateralReleased under the new fee-on-interest
+        // rule. Mirrors the contract math exactly (floor division arithmetic).
+        uint256 interestInCollateral =
+            (expectedInterest * loan.requiredRepaymentDrops) / loan.loanAmount;
+        uint256 expectedFee = (interestInCollateral * 100) / 10000;
+        uint256 expectedRelease = DEPOSIT_100_FXRP - expectedFee;
+
         vm.prank(borrower1);
         vault.submitRepaymentProof(loanId, proof);
 
         assertEq(uint8(vault.getLoan(loanId).state), uint8(LoanState.CLOSED));
-        // 1% protocol reserve fee applied on repayment
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6);
+        // Bug 2 fix: fee is now 1% of interest-equivalent collateral, not 1% of
+        // the entire deposit. Expect the precomputed released amount.
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + expectedRelease);
     }
 }

@@ -337,9 +337,24 @@ contract CreditGateVaultSecurityEdgeTest is Test, CreditGateTypes {
             "Collateral must be released on repayment");
 
         // Borrower should have received collateral back
-        // 1% protocol reserve fee applied on repayment
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6,
-            "Borrower must receive FXRP collateral back (minus 1% fee)");
+        // Bug 2 fix: protocol reserve fee is now 1% of the INTEREST-equivalent
+        // collateral (= the XRP equivalent of accrued interest), NOT 1% of the
+        // full deposit. Here elapsed == loanDuration so interest is at the cap:
+        //   interestUSDT0        = 100e18 * 500 * LOAN_DURATION / (10000 * 365 days)
+        //   interestInCollateral = interestUSDT0 * requiredRepaymentDrops / loanAmount
+        //                        = interestUSDT0 * 40e6 / 100e18
+        //   fee                  = interestInCollateral * 100 / 10000
+        //   returned             = DEPOSIT_100_FXRP - fee
+        // The loan is now CLOSED, so getInterestOwed returns 0. Recompute the
+        // pre-close interest from the captured snapshot (loanAtDraw).
+        uint256 interestUSDT0 = (loanAtDraw.loanAmount * vault.INTEREST_RATE_BPS() *
+            LOAN_DURATION) / (10000 * vault.SECONDS_PER_YEAR());
+        uint256 interestInCollateral =
+            (interestUSDT0 * loanAtDraw.requiredRepaymentDrops) / loanAtDraw.loanAmount;
+        uint256 expectedFee = (interestInCollateral * vault.protocolReserveBps()) / 10000;
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - expectedFee,
+            "Borrower must receive FXRP collateral back (minus fee-on-interest)");
+        assertLt(expectedFee, 1e6, "fee-on-interest must be smaller than the old 1%-of-collateral fee");
     }
 
     // ═══════════════════ TEST 4: Paused vault allows liquidation operations ═══════════════════
@@ -465,9 +480,13 @@ contract CreditGateVaultSecurityEdgeTest is Test, CreditGateTypes {
         CreditGateTypes.Loan memory loanClosed = vault.getLoan(loanId);
         assertEq(uint8(loanClosed.state), uint8(LoanState.CLOSED),
             "Loan must close successfully despite tightened LTV");
-        // 1% protocol reserve fee applied on repayment
-        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP - 1e6,
-            "Collateral returned to borrower (minus 1% fee)");
+        // Bug 2 fix: fee is 1% of the INTEREST-equivalent collateral. With
+        // immediate repayment (no warp → elapsed == 0 → interest == 0) the fee
+        // is 0 and the borrower gets the FULL 100 FXRP collateral back. The old
+        // behavior (1e6 = 1% of collateral regardless of interest) is gone.
+        assertEq(fxrp.balanceOf(borrower1), fxrpBalBefore + DEPOSIT_100_FXRP,
+            "Collateral returned to borrower (no fee on zero-interest repayment)");
+        assertEq(vault.protocolReserve(), 0, "no reserve accumulated on zero-interest repayment");
 
         // Verify the tightened LTV DOES affect new loans
         uint256 newLoanId = _setupToEligible(borrower2, 0);

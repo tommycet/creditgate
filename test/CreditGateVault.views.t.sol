@@ -291,20 +291,27 @@ contract CreditGateVaultViewsTest is Test, CreditGateTypes {
     //   INTEREST_RATE_BPS = 500  (5% APY), SECONDS_PER_YEAR = 365 days.
     //   startTime = deadline - loanDuration = now (draw time). elapsed = warp - now.
     //   interest = loanAmount * 500 * elapsed / (10000 * 365 days).
-    //   At 1 year ⇒ 5% of principal. At draw (elapsed 0) ⇒ 0.
+    //   Bug 1 fix: interest is capped at `loanDuration`. Warping past the deadline
+    //   yields the SAME interest as warping to exactly the deadline — the cap stops
+    //   the linear accrual at one loan period. We warp to exactly LOAN_DURATION.
+    //   At LOAN_DURATION = 7 days ⇒ interest = 100e18 * 500 * 7 days /
+    //     (10000 * 365 days) ≈ 0.09589e18 (one full loan period's interest).
 
     function test_getLoanSummary_interestAccrues() public {
         uint256 loanId = _fundBorrower1Loan();
-        // Warp 365 days ⇒ interest = 100e18 * 500/10000 = 5e18.
-        vm.warp(block.timestamp + 365 days);
+        // Warp exactly one loan period. Bug 1 fix: interest is capped at
+        // LOAN_DURATION — warping further would not increase the accrued amount.
+        vm.warp(block.timestamp + LOAN_DURATION);
 
         (, uint256 collateral, uint256 loanAmount, uint256 interestOwed,
             uint256 totalRepayment,,) = vault.getLoanSummary{value: 0}(loanId);
 
         assertEq(collateral, DEPOSIT_100_FXRP, "collateral unchanged");
         assertEq(loanAmount, LOAN_100_USDT, "principal unaffected by interest");
-        assertEq(interestOwed, 5e18, "1y interest at 5% APY = 5% of 100e18 = 5e18");
-        assertEq(totalRepayment, 105e18, "principal + interest");
+        uint256 expectedInterest = (LOAN_100_USDT * 500 * LOAN_DURATION) /
+            (10000 * 365 days);
+        assertEq(interestOwed, expectedInterest, "interest = one full loan period's accrual (capped)");
+        assertEq(totalRepayment, LOAN_100_USDT + expectedInterest, "principal + interest");
     }
 
     function test_getHealthFactor_dropsAsInterestAccrues() public {
@@ -312,15 +319,17 @@ contract CreditGateVaultViewsTest is Test, CreditGateTypes {
         uint256 hf0 = vault.getHealthFactor{value: 0}(loanId);
         assertEq(hf0, 2.5e18, "HF at draw must be 2.5e18 (no interest)");
 
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + LOAN_DURATION);
         uint256 hf1 = vault.getHealthFactor{value: 0}(loanId);
 
-        // loanValueUsd18 = 100e18 + 5e18 = 105e18; collateralUsd18 = 250e18 (price $2.50).
-        // HF = 250e18 * 1e18 / 105e18 ≈ 2.380952380952e18. Floor the division exactly.
-        uint256 expectedHF = uint256(250e18) * 1e18 / uint256(105e18);
+        // loanValueUsd18 = 100e18 + interestCapped; collateralUsd18 = 250e18 ($2.50).
+        // HF = 250e18 * 1e18 / loanValueUsd18. Floor the division exactly.
+        uint256 interestCapped = (LOAN_100_USDT * 500 * LOAN_DURATION) /
+            (10000 * 365 days);
+        uint256 expectedHF = uint256(250e18) * 1e18 / uint256(LOAN_100_USDT + interestCapped);
         assertEq(hf1, expectedHF, "HF must drop toward 1e18 as interest accrues");
         assertLt(hf1, hf0, "accrued interest must lower the health factor");
-        assertGt(hf1, 1e18, "still well collateralised after 1y");
+        assertGt(hf1, 1e18, "still well collateralised at the deadline");
     }
 
     function test_getPortfolioSummary_aggregatesInterest() public {
@@ -330,15 +339,19 @@ contract CreditGateVaultViewsTest is Test, CreditGateTypes {
         // harness attestation is single-shot per nonce. Easiest robust path: fund
         // one loan, warp, and confirm portfolio interest == per-loan interest.
         uint256 loanId = _fundBorrower1Loan();
-        vm.warp(block.timestamp + 365 days);
+        // Warp exactly one loan period (Bug 1 fix: interest is capped beyond this).
+        vm.warp(block.timestamp + LOAN_DURATION);
 
         (uint256 totalCollateral, uint256 totalBorrowed, uint256 activeLoans, uint256 totalInterestOwed) =
             vault.getPortfolioSummary(borrower1);
 
+        uint256 expectedInterest = (LOAN_100_USDT * 500 * LOAN_DURATION) /
+            (10000 * 365 days);
+
         assertEq(totalCollateral, DEPOSIT_100_FXRP);
         assertEq(totalBorrowed, LOAN_100_USDT);
         assertEq(activeLoans, 1);
-        assertEq(totalInterestOwed, 5e18, "portfolio interest == per-loan interest (single loan)");
+        assertEq(totalInterestOwed, expectedInterest, "portfolio interest == per-loan interest (single loan)");
 
         // Cross-check against getInterestOwed directly.
         assertEq(totalInterestOwed, vault.getInterestOwed(loanId),

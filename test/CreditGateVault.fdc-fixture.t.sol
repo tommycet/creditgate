@@ -189,8 +189,12 @@ contract CreditGateVaultFDCFixtureTest is Test {
         assertEq(uint8(vault.getLoan(loanId).state), uint8(CreditGateTypes.LoanState.CLOSED));
         // Collateral was already released on proof submission (vault closes and refunds).
         // Borrower should have received their 100 FXRP back immediately.
-        // 1% protocol reserve fee applied on repayment (99e6 returned instead of 100e6)
-        assertEq(fxrp.balanceOf(borrower), 999e6); // 900e6 initial + 99e6 returned (1% fee)
+        // Bug 2 fix: protocol reserve fee is now 1% of the INTEREST-equivalent
+        // collateral, NOT 1% of the entire deposit. With immediate repayment
+        // (elapsed == 0) interest is 0 → fee = 0 → the borrower gets the FULL
+        // collateral back. Initial balance was 900e6 (after the 100e6 deposit),
+        // so the post-repayment balance is 1000e6.
+        assertEq(fxrp.balanceOf(borrower), 1_000e6);
     }
 
     function test_fixture_commitmentIsLoanSpecific() public {
@@ -234,8 +238,11 @@ contract CreditGateVaultFDCFixtureTest is Test {
         // Collateral was released at proof submission. Borrowing a second time
         // reuses the released FXRP: deposit again with the returned balance.
         uint256 balAfterClose = fxrp.balanceOf(borrower);
-        // 1% protocol reserve fee applied on repayment (99e6 returned instead of 100e6)
-        assertEq(balAfterClose, 999e6); // 900e6 initial + 99e6 returned (1% fee)
+        // Bug 2 fix: fee is now 1% of the INTEREST-equivalent collateral. With
+        // immediate repayment (elapsed == 0) interest is 0 → fee is 0 → the full
+        // 100 FXRP deposit is returned. Initial balance was 900e6, so the
+        // post-close balance is 1000e6 (no 1e6 deduction).
+        assertEq(balAfterClose, 1_000e6);
 
         // Second loan: deposit 50 of the returned collateral, DON'T request eligibility
         vm.startPrank(borrower);

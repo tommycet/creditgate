@@ -8,6 +8,12 @@
 
 **Primary target: Bounty 2** (FCC is the core differentiator). **Secondary target: Bounty 1** (FXRP + FDC cross-chain flow qualifies). Flare Summer Signal (DoraHacks, Aug 14 2026).
 
+## Target User
+
+**Primary:** FXRP holders on Flare who want to access credit (USDT0 loans) against their FXRP collateral without exposing their financial history to a centralized credit bureau. These are XRP-native users who value the privacy guarantees of the XRPL base layer and will not grant visibility into their financial activities.
+
+**Secondary:** Lenders/liquidity providers who supply USDT0 to the vault and earn interest from borrower repayments, secured by over-collateralized FXRP positions.
+
 ## One-Line Description
 
 Private FXRP credit eligibility layer — deposit FXRP, get a private credit attestation via FCC, borrow USDT0, repay on XRPL verified by FDC.
@@ -134,7 +140,7 @@ A 3-minute demo script is provided in [`DEMO.md`](DEMO.md), structured as five a
 12. **5 critical security edge-case tests** — negative FDC amount overflow, cross-loan proof replay, past-deadline interest accrual, paused-vault liquidation, LTV non-retroactive
 13. **187-test Foundry suite across 18 suites** — grew from 91 to 187 during the program
 14. **Frontend /docs section** — consolidated evidence and reports into browseable Next.js pages
-15. **Protocol reserve fund** — 1% fee on interest payments funds a backstop reserve; owner-withdrawable (Aave Safety Module pattern)
+15. **Protocol reserve fund** — 1% of interest-equivalent collateral, owner-withdrawable (Aave Safety Module pattern)
 16. **Borrower reputation tracking** — on-chain history (totalBorrowed, totalRepaid, loansCompleted, loansDefaulted) powering FCC credit scoring (Aave/ARCx pattern)
 17. **24h grace period** — borrower protection before liquidation; 24-hour window after deadline prevents instant seizure (Aave V3/Compound V3 pattern)
 18. **FCC TEE credit handler** — Production deployment path for the Go handler's TEE attestation logic: Python handler deployable to GCP Confidential Space (Intel TDX). Produces EIP-191 signed attestations from inside a real TEE enclave. Follows Flare's official flare-ai-kit SDK patterns. Closes the simulated TEE gap. See `fcc/README.md` for the full Go-vs-Python handler relationship and `test/CreditGateVault.tee-compat.t.sol` for the byte-identical-signature proof.
