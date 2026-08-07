@@ -610,25 +610,23 @@ contract CreditGateVault is CreditGateTypes, ReentrancyGuard {
         proofConsumed[proofHash] = true;
 
         // ── Protocol reserve fee (Aave Safety Module pattern) ──
-        // Deduct protocolReserveBps from the INTEREST portion of repayment.
-        // The collateral is returned in full; only the interest fee funds the backstop.
-        uint256 totalRepaid = resp.receivedAmount;
-        uint256 interestOwed = totalRepaid > loan.loanAmount 
-            ? totalRepaid - loan.loanAmount 
-            : 0;
-        uint256 fee = (interestOwed * protocolReserveBps) / 10000;
+        // Deduct protocolReserveBps from collateral released on repayment.
+        // The fee stays in the vault as a backstop fund; owner can withdraw.
+        uint256 collateralAmount = loan.collateralAmount;
+        uint256 fee = (collateralAmount * protocolReserveBps) / 10000;
+        uint256 collateralReleased = collateralAmount - fee;
         protocolReserve += fee;
 
         loan.collateralAmount = 0;
         loan.state = LoanState.CLOSED;
 
-        fxrp.safeTransfer(borrower, loan.collateralAmount);
+        fxrp.safeTransfer(borrower, collateralReleased);
 
         emit RepaymentProofSubmitted(loanId, proofHash, resp.receivedAmount);
         if (fee > 0) {
             emit ProtocolReserveFee(loanId, fee);
         }
-        emit LoanClosed(loanId, borrower, loan.collateralAmount);
+        emit LoanClosed(loanId, borrower, collateralReleased);
     }
 
     /// @notice Liquidate a funded loan whose repayment deadline has passed. Seizes the
