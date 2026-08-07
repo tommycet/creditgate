@@ -73,7 +73,7 @@ creditgate/
 │   ├── CreditGateVault.t.sol                  # 69 unit tests
 │   ├── CreditGateVault.fdc-fixture.t.sol      # 4 FDC lifecycle tests
 │   ├── CreditGateVault.invariant.t.sol        # 8 invariant / fuzz tests
-│   ├── CreditGateVault.go-tee-compat.t.sol    # 2 cross-language EIP-191 tests
+│   ├── CreditGateVault.tee-compat.t.sol    # 4 cross-language EIP-191 tests
 │   ├── CreditGateVault.malicious-reentrancy.t.sol  # 1 malicious-token attack test
 │   ├── CreditGateVault.reentrancy.t.sol        # 2 reentrancy / solvency / FTSO-edge
 │   ├── CreditGateVault.edge-cases.t.sol        # 15 border-case + security-boundary tests
@@ -155,7 +155,7 @@ Tests are organized *by concern*, not by a single mega-suite. Choose the file th
 | A new unit case for vault behavior (deposit, borrow, repay, release) | `test/CreditGateVault.t.sol` |
 | An end-to-end FDC attestation→verify lifecycle case | `test/CreditGateVault.fdc-fixture.t.sol` |
 | An invariant property or fuzz test over the state machine | `test/CreditGateVault.invariant.t.sol` |
-| A test that must match the Go FCC handler's EIP-191 signing byte-for-byte | `test/CreditGateVault.go-tee-compat.t.sol` |
+| A test that must match the Go FCC handler's EIP-191 signing byte-for-byte | `test/CreditGateVault.tee-compat.t.sol` |
 | A reentrancy / malicious-token / solvency attack test | `test/CreditGateVault.malicious-reentrancy.t.sol` or `test/CreditGateVault.reentrancy.t.sol` |
 | Border ratios, expired attestations, double-request rejection, etc. | `test/CreditGateVault.edge-cases.t.sol` |
 
@@ -202,7 +202,7 @@ Then run `forge test --match-test test_NewBehavior` to iterate quickly. Fuzz tes
 
 - Keep the handler stateless where possible; the `/health` endpoint must return 200 without external deps.
 - Use structured logging (`log/slog`).
-- EIP-191 signatures produced here MUST be recoverable by Solidity `ecrecover` — extend `go-tee-compat.t.sol` if you change the signing format.
+- EIP-191 signatures produced here MUST be recoverable by Solidity `ecrecover` — extend `tee-compat.t.sol` if you change the signing format.
 
 ### Frontend (Next.js + wagmi)
 

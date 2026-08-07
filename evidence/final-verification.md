@@ -87,7 +87,6 @@ Swept `README.md`, `DEMO.md`, `SUBMISSION.md`, `ARCHITECTURE.md`, `evidence/test
 
 Swept `README.md`, `SUBMISSION.md`, `frontend/src/config/contract.ts`, `frontend/src/app/app/page.tsx`, `script/DeployCreditGate.s.sol` for `DEPLOYED_ADDRESS` / `0x000…000`.
 
-- `README.md:146` and `SUBMISSION.md:136` — previously `<DEPLOYED_ADDRESS>` placeholders. **DEPLOYED 2026-08-06**: filled in with `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` plus a Live Deployment section in README capturing the deploy/approve/deposit tx hashes. PROGRAM-SUMMARY "Known Gap #1: NOT DEPLOYED" struck through as RESOLVED.
 - `frontend/src/config/contract.ts:2-5` — `ZERO_ADDRESS` is retained as the **explicit-set-to-zero sentinel** for the env-var guard; the runtime fallback when `NEXT_PUBLIC_VAULT_ADDRESS` is unset now points at the live deployed vault (`DEPLOYED_VAULT_ADDRESS = 0x5e74…9939`). The `isConfigured` guard still refuses to render UI if env is explicitly the zero address. Correct pattern, preserved.
 - `frontend/.env.example:5` — `NEXT_PUBLIC_VAULT_ADDRESS` set to the live deployed vault `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`.
 - `frontend/src/app/app/page.tsx:59/463/468` — comparisons against the 32-byte zero hash as a "value is unset" sentinel. Correct usage.
@@ -134,4 +133,3 @@ Deployment record for the next subagent:
 - Vault deployed 2026-08-06 at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939` (deploy tx `0xf2678b28d46729d0aebb0fa9c7590689a1a48cd973de30f5e20e5d96b12771cb`).
 - Vault seeded with 5 FXRP collateral via FXRP approve (tx `0x7f1905927b661003b5b62be4c2eb8ee67d4c93eb4041c0caea80c89c0ee036b8`) and deposit (tx `0x2ba65ff5032b98b5f02d60cc38926e8937fea29f6a3378b00f9b5c08b1614149`).
 - Owner: `0x5a3969F3767Cde96D662A94cAa79779073F80A0c`.
-- All `<DEPLOYED_ADDRESS>` placeholders in README.md, SUBMISSION.md, PROGRAM-SUMMARY.md, frontend/.env.example, and frontend/src/config/contract.ts have been filled with the live address.

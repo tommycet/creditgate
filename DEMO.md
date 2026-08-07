@@ -98,7 +98,7 @@ Highlight three categories of evidence (panels prepared as `forge test --match-c
 
 - **Reentrancy attack tests** (`CreditGateVault.malicious-reentrancy.t.sol`, 1 test):
   a malicious FXRP token that calls `depositCollateral` from inside `transferFrom` — **blocked by `ReentrancyGuard`**. "We didn't just add the guard; we wrote an attack that proves it."
-- **Go-TEE cross-language compatibility** (`CreditGateVault.go-tee-compat.t.sol`, 2 tests):
+- **Cross-language TEE compatibility** (`CreditGateVault.tee-compat.t.sol`, 2 tests):
   Go handler produces a real EIP-191 signature → Solidity `ecrecover` accepts it → `ELIGIBLE`. Tamper one byte of the limit → `InvalidEligibilitySigner`. "The TEE and the vault agree on bytes."
 - **Invariant tests** (`CreditGateVault.invariant.t.sol`, 8 tests):
   **FXRP conservation** (vault collateral never leaks) + **USDT0 solvency** (vault never disburses more than it holds) + no overdraft + state-machine ordering + no ghost collateral + interest ceiling + LTV limit + terminal-loan finality, across fuzzed inputs (256 runs each).
