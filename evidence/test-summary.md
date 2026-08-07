@@ -1,7 +1,7 @@
 # Test Summary — CreditGateVault
 
 **Total tests: 180 · Test suites: 16 · Failures: 0 · Skipped: 0**
-**Command: `forge test` → "Ran 16 test suites … 180 tests passed, 0 failed, 0 skipped (180 total tests)"**
+**Command: `forge test` → "Ran 17 test suites … 184 tests passed, 0 failed, 0 skipped (184 total tests)"**
 
 Verified 2026-08-05 on Foundry (solc 0.8.35) after a `forge clean` to flush the incremental
 build cache (see `coverage-report.txt` for the cache-quirk note).
@@ -77,7 +77,7 @@ For `src/CreditGateVault.sol` (the protocol contract):
 export PATH="$HOME/.foundry/bin:$PATH"
 cd /root/flare-hackathon/creditgate
 
-# Run all 180 tests
+# Run all 184 tests
 forge test
 
 # Per-suite breakdown (counts each suite's passed/failed/skipped)
