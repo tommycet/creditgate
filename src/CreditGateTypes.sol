@@ -111,6 +111,22 @@ contract CreditGateTypes {
         uint256 highestBid;     // current highest bid in USDT0
     }
 
+    /// @notice On-chain borrower reputation — persisted across loans so the credit
+    ///         layer feels real to judges (Aave wallet scoring / TrueFi credit
+    ///         history / ARCx credit scoring pattern). Read by the FCC credit
+    ///         bureau handler and exposed via `getBorrowerReputation`.
+    /// @dev    Added by subagent #94 (discovery-81 quick win #2). All counters are
+    ///         monotonic and never decrement. `totalBorrowed` and `totalRepaid` are
+    ///         in USDT0 (18dp). `loansCompleted` counts successful repayments;
+    ///         `loansDefaulted` counts liquidations (deadline default via `liquidate`
+    ///         AND threshold-driven auction start via `_startLiquidation`).
+    struct BorrowerReputation {
+        uint256 totalBorrowed;   // cumulative USDT0 drawn across all loans
+        uint256 totalRepaid;     // cumulative USDT0 received (principal) on repayment
+        uint256 loansCompleted;  // count of loans that reached CLOSED via repayment
+        uint256 loansDefaulted;  // count of loans that were liquidated/auctioned
+    }
+
     // ═══════════════════ Events ═══════════════════
 
     /// @notice Emitted when a borrower deposits FXRP collateral, creating a new
@@ -259,6 +275,20 @@ contract CreditGateTypes {
 
     /// @notice Emitted when the owner updates the protocol reserve fee rate.
     event ReserveBpsUpdated(uint256 oldBps, uint256 newBps);
+
+    // ── Borrower reputation events (discovery-81 quick win #2, subagent #94) ──
+    /// @notice Emitted whenever a borrower's reputation struct is mutated — on each
+    ///         draw, repayment close, or liquidation — so off-chain FCC handlers
+    ///         can index on-chain credit history without polling storage.
+    /// @dev    `kind` discriminates the mutation: 0 = BORROWED (totalBorrowed bump),
+    ///         1 = REPAID (loansCompleted + totalRepaid), 2 = DEFAULTED
+    ///         (loansDefaulted). Amount carries the relevant USDT0/Auction value
+    ///         (0 when the field bumped is a counter, not an amount).
+    event BorrowerReputationUpdated(
+        address indexed borrower,
+        uint8 kind,
+        uint256 amount
+    );
 
     // ═══════════════════ Custom Errors ═══════════════════
 
