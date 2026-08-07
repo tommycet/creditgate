@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { useAccount, useWriteContract, useReadContract, useChainId, useSwitchChain, useWaitForTransactionReceipt } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { parseUnits, formatUnits, keccak256, stringToHex, isAddress } from "viem";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CREDIT_GATE_CONFIG, LOAN_STATES, isConfigured } from "@/config/contract";
 import { CREDIT_GATE_ABI, ERC20_ABI } from "@/lib/abi";
 
@@ -32,13 +34,13 @@ export default function AppPage() {
   });
   const borrowerLoanIds: bigint[] = (borrowerLoanIdsRaw ?? []) as bigint[];
 
-  // Write contract hooks — capture errors for user-facing display
-  const { writeContract: depositCollateral, isPending: isDepositing, error: depositError } = useWriteContract();
-  const { writeContract: requestEligibility, isPending: isRequesting, error: requestError } = useWriteContract();
-  const { writeContract: drawLoan, isPending: isDrawing, error: drawError } = useWriteContract();
-  const { writeContract: withdrawCollateral, isPending: isWithdrawing, error: withdrawError } = useWriteContract();
-  const { writeContract: registerXRPL, isPending: isRegistering, error: registerError } = useWriteContract();
-  const { writeContract: approveUsdt0, isPending: isApproving, error: approveError } = useWriteContract();
+  // Write contract hooks — use writeContractAsync for toast.promise lifecycle
+  const { writeContractAsync: depositCollateral, isPending: isDepositing, error: depositError } = useWriteContract();
+  const { writeContractAsync: requestEligibility, isPending: isRequesting, error: requestError } = useWriteContract();
+  const { writeContractAsync: drawLoan, isPending: isDrawing, error: drawError } = useWriteContract();
+  const { writeContractAsync: withdrawCollateral, isPending: isWithdrawing, error: withdrawError } = useWriteContract();
+  const { writeContractAsync: registerXRPL, isPending: isRegistering, error: registerError } = useWriteContract();
+  const { writeContractAsync: approveUsdt0, isPending: isApproving, error: approveError } = useWriteContract();
 
   const txError = depositError || requestError || drawError || withdrawError || registerError || approveError;
 
@@ -53,7 +55,7 @@ export default function AppPage() {
   const [fccError, setFccError] = useState<string | null>(null);
   // S4: pending + confirmed tx hashes plus a transient success toast
   const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | undefined>(undefined);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [_successToast, setSuccessToast] = useState<string | null>(null); // kept for compat
 
   // Submit eligibility attestation — S4: capture the tx hash + error so we can
   // wait for confirmation and show a success toast once it is mined.
@@ -74,10 +76,8 @@ export default function AppPage() {
   // S4: when a tx that we broadcast confirms, surface a toast + auto-clear later
   useEffect(() => {
     if (txReceipt && pendingTxHash) {
-      setSuccessToast(`✓ Transaction confirmed — hash ${pendingTxHash.slice(0, 10)}…${pendingTxHash.slice(-6)}`);
+      toast.success(`Transaction confirmed — ${pendingTxHash.slice(0, 10)}…${pendingTxHash.slice(-6)}`);
       setPendingTxHash(undefined);
-      const t = setTimeout(() => setSuccessToast(null), 8000);
-      return () => clearTimeout(t);
     }
   }, [txReceipt, pendingTxHash]);
 
@@ -122,33 +122,54 @@ export default function AppPage() {
 
   const handleDeposit = () => {
     if (!depositAmount) return;
-    depositCollateral({
-      address: vaultAddress,
-      abi: CREDIT_GATE_ABI,
-      functionName: "depositCollateral",
-      args: [parseUnits(depositAmount, 6)],
-    });
+    toast.promise(
+      depositCollateral({
+        address: vaultAddress,
+        abi: CREDIT_GATE_ABI,
+        functionName: "depositCollateral",
+        args: [parseUnits(depositAmount, 6)],
+      }),
+      {
+        loading: "Depositing collateral…",
+        success: "Collateral deposited!",
+        error: (err) => err?.shortMessage ?? "Deposit failed",
+      }
+    );
   };
 
   const handleRegisterXRPL = () => {
     if (!xrplAddress.trim()) return;
     const hash = keccak256(stringToHex(xrplAddress.trim()));
-    registerXRPL({
-      address: vaultAddress,
-      abi: CREDIT_GATE_ABI,
-      functionName: "registerXRPLAddress",
-      args: [hash],
-    });
+    toast.promise(
+      registerXRPL({
+        address: vaultAddress,
+        abi: CREDIT_GATE_ABI,
+        functionName: "registerXRPLAddress",
+        args: [hash],
+      }),
+      {
+        loading: "Binding XRPL address…",
+        success: "XRPL address bound!",
+        error: (err) => err?.shortMessage ?? "Binding failed",
+      }
+    );
   };
 
   const handleApproveUsdt0 = () => {
     if (!loanAmount) return;
-    approveUsdt0({
-      address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [vaultAddress, parseUnits(loanAmount, 18)],
-    });
+    toast.promise(
+      approveUsdt0({
+        address: CREDIT_GATE_CONFIG.contracts.usdt0 as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [vaultAddress, parseUnits(loanAmount, 18)],
+      }),
+      {
+        loading: "Approving USDT0…",
+        success: "USDT0 approved!",
+        error: (err) => err?.shortMessage ?? "Approval failed",
+      }
+    );
   };
 
   // S2: helper to validate FCC attestation fields before on-chain submission
@@ -214,32 +235,53 @@ export default function AppPage() {
   }, [submitTxData]);
 
   const handleRequestEligibility = (loanId: bigint) => {
-    requestEligibility({
-      address: vaultAddress,
-      abi: CREDIT_GATE_ABI,
-      functionName: "requestEligibility",
-      args: [loanId],
-    });
+    toast.promise(
+      requestEligibility({
+        address: vaultAddress,
+        abi: CREDIT_GATE_ABI,
+        functionName: "requestEligibility",
+        args: [loanId],
+      }),
+      {
+        loading: "Requesting eligibility…",
+        success: "Eligibility requested!",
+        error: (err) => err?.shortMessage ?? "Request failed",
+      }
+    );
   };
 
   const handleDrawLoan = (loanId: bigint) => {
     if (!loanAmount) return;
-    drawLoan({
-      address: vaultAddress,
-      abi: CREDIT_GATE_ABI,
-      functionName: "drawLoan",
-      args: [loanId, parseUnits(loanAmount, 18)],
-      value: 0n,
-    });
+    toast.promise(
+      drawLoan({
+        address: vaultAddress,
+        abi: CREDIT_GATE_ABI,
+        functionName: "drawLoan",
+        args: [loanId, parseUnits(loanAmount, 18)],
+        value: 0n,
+      }),
+      {
+        loading: "Drawing loan…",
+        success: "Loan drawn!",
+        error: (err) => err?.shortMessage ?? "Draw failed",
+      }
+    );
   };
 
   const handleWithdraw = (loanId: bigint) => {
-    withdrawCollateral({
-      address: vaultAddress,
-      abi: CREDIT_GATE_ABI,
-      functionName: "withdrawCollateral",
-      args: [loanId],
-    });
+    toast.promise(
+      withdrawCollateral({
+        address: vaultAddress,
+        abi: CREDIT_GATE_ABI,
+        functionName: "withdrawCollateral",
+        args: [loanId],
+      }),
+      {
+        loading: "Withdrawing collateral…",
+        success: "Collateral withdrawn!",
+        error: (err) => err?.shortMessage ?? "Withdrawal failed",
+      }
+    );
   };
 
   if (!isConfigured) {
@@ -274,6 +316,7 @@ export default function AppPage() {
   }
 
   return (
+    <ErrorBoundary>
     <main className="min-h-screen bg-gray-950 text-white">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -286,22 +329,13 @@ export default function AppPage() {
         {txError && (
           <div className="mb-6 bg-red-900/50 border border-red-500 rounded-lg p-4">
             <p className="text-red-300 text-sm font-semibold">Transaction Error</p>
-            <p className="text-red-200 text-xs mt-1">
+            <p className="text-red-200 text-xs mt-1 break-all">
               {txError?.message || String(txError)}
             </p>
           </div>
         )}
 
-        {/* S4: success toast — auto-clears after 8s */}
-        {successToast && (
-          <div
-            className="mb-6 bg-green-900/60 border border-green-500 rounded-lg p-4"
-            role="status"
-            aria-live="polite"
-          >
-            <p className="text-green-300 text-sm font-semibold">{successToast}</p>
-          </div>
-        )}
+        {/* S4: success toast now handled by react-hot-toast — no manual banner */}
 
         {/* S4: pending tx confirmation indicator */}
         {isConfirming && (
@@ -352,14 +386,14 @@ export default function AppPage() {
         ) : (
           <>
           {/* Token balances */}
-          <div className="mb-6 grid grid-cols-2 gap-4 max-w-4xl mx-auto">
-            <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 text-center">
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto">
+            <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 text-center min-w-0">
               <div className="text-xs text-gray-400">Your FXRP Balance</div>
-              <div className="text-lg font-semibold">{formatUnits(fxrpBalance, 6)}</div>
+              <div className="text-lg font-semibold truncate">{formatUnits(fxrpBalance, 6)}</div>
             </div>
             <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 text-center">
               <div className="text-xs text-gray-400">Your USDT0 Balance</div>
-              <div className="text-lg font-semibold">{formatUnits(usdt0Balance, 18)}</div>
+              <div className="text-lg font-semibold truncate">{formatUnits(usdt0Balance, 18)}</div>
             </div>
           </div>
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -398,7 +432,7 @@ export default function AppPage() {
                   ✓ XRPL address bound — repayment proofs must match this address
                 </div>
               ) : (
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     value={xrplAddress}
@@ -441,7 +475,7 @@ export default function AppPage() {
                     className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     onClick={() => selectedLoanId && handleRequestEligibility(BigInt(selectedLoanId))}
                     disabled={isRequesting || !selectedLoanId}
@@ -544,6 +578,7 @@ export default function AppPage() {
         )}
       </div>
     </main>
+    </ErrorBoundary>
   );
 }
 
@@ -691,7 +726,7 @@ function AuctionPanel({ loanId }: { loanId: bigint }) {
   return (
     <div className="mt-3 bg-purple-950/40 border border-purple-700 rounded-lg p-3 space-y-2">
       <div className="text-sm font-semibold text-purple-300">🇳🇱 Dutch Liquidation Auction</div>
-      <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300">
         <div>
           <div className="text-gray-500">Start price</div>
           <div className="font-mono">{formatUnits(auction.startPrice, 18)} USDT0</div>
@@ -729,7 +764,7 @@ function AuctionPanel({ loanId }: { loanId: bigint }) {
 
       {/* Place Bid — only meaningful while the auction window is open. */}
       {!expired && (
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="number"
             value={bidAmount}
@@ -841,7 +876,7 @@ function LoanCard({ loanId }: { loanId: bigint }) {
 
   return (
     <div className="bg-gray-800 rounded-lg p-4 border border-gray-600">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
         <div>
           <div className="font-semibold">
             Loan #{loanId.toString()}
