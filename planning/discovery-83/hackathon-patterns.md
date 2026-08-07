@@ -83,7 +83,7 @@ Chainlink's guide emphasizes this strongly: "Judges will favour submissions that
 
 ## 3. What We're Doing Right (CreditGate Assessment)
 
-Based on CreditGate's current state (146 tests, 12 suites, 8 invariants, deployed on Coston2):
+Based on CreditGate's current state (159 tests, 13 suites, 8 invariants, deployed on Coston2):
 
 ### ✅ Strong Product Usefulness
 - Solves a real problem: "Billions of dollars of XRP sit idle on Flare as FXRP collateral — inaccessible for credit."
@@ -97,7 +97,7 @@ Based on CreditGate's current state (146 tests, 12 suites, 8 invariants, deploye
 - This directly addresses the "Flare integration quality" judging criterion
 
 ### ✅ Strong Technical Execution
-- 146 tests across 12 suites
+- 159 tests across 13 suites
 - 8 invariant tests
 - Edge case, reentrancy, malicious reentrancy, auction, LTV, trigger, views, FDC-fixture, and Go-TEE-compat test suites
 - Source verified on Coston2 explorer

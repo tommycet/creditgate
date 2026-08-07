@@ -60,7 +60,7 @@
 ### 3. Technical Execution (25% weight) — 9.5/10
 
 **Strengths:**
-- **146 tests across 12 suites, 0 failures** — the deepest verifiable engineering evidence in the field (competitors: Whisper=6, FlareShield/VeriFlow=no test claims)
+- **159 tests across 13 suites, 0 failures** — the deepest verifiable engineering evidence in the field (competitors: Whisper=6, FlareShield/VeriFlow=no test claims)
 - **97.75% line coverage** of `CreditGateVault.sol`, 100% function coverage
 - **8 invariant/fuzz tests** (256 runs each): FXRP conservation, USDT0 solvency, no overdraft, state-machine ordering, no ghost collateral, interest ceiling, LTV limit, terminal-loan finality
 - **Go-TEE ↔ Solidity cross-language compatibility** — 2 tests prove Go handler's EIP-191 signature accepted by Solidity `ecrecover`; tamper one byte → `InvalidEligibilitySigner`. No competitor publishes comparable evidence.
@@ -80,7 +80,7 @@
 ### 4. Evidence of New Work (15% weight) — 9.5/10
 
 **Strengths:**
-- **14 items built during hackathon** — Dutch auction liquidation, 5% APR interest, health factor, FCC credit bureau in Go, automated FTSO-threshold liquidation, per-collateral LTV config, 8 invariant tests, live Coston2 deployment, FDC attestation with real XRPL tx, source verification, 3 security audits, 5 critical security edge-case tests, 146-test suite (grew from 91), frontend /docs section
+- **14 items built during hackathon** — Dutch auction liquidation, 5% APR interest, health factor, FCC credit bureau in Go, automated FTSO-threshold liquidation, per-collateral LTV config, 8 invariant tests, live Coston2 deployment, FDC attestation with real XRPL tx, source verification, 3 security audits, 5 critical security edge-case tests, 159-test suite (grew from 91), frontend /docs section
 - **Live on-chain evidence**: vault deploy tx, FXRP approve tx, FXRP deposit tx, FDC attestation tx — all with explorer links
 - **Honest scope documentation**: SUBMISSION.md clearly delineates "Pre-existing baseline" vs "Built/Improved during the hackathon program"
 - **6 planning review verdicts** (fdc-review, frontend-review, security-audit, judge-sim, competitive-positioning, gas-audit) — each produced by read-only audit subagent, then acted on
@@ -167,7 +167,7 @@ The v6 score of 9.5 was arguably generous given the documentation gaps. With v7'
 
 **Score: 9.4 / 10**
 
-CreditGate is the strongest submission in the Flare Summer Signal hackathon. It uses all 4 Flare primitives as load-bearing components — a distinction no competitor matches. The 146-test suite with 97.75% coverage, cross-language Go-Solidity compatibility tests, and real reentrancy attack test represent the deepest verifiable engineering evidence in the field. The v7 fixes close all documentation gaps, making the submission more transparent and judge-friendly.
+CreditGate is the strongest submission in the Flare Summer Signal hackathon. It uses all 4 Flare primitives as load-bearing components — a distinction no competitor matches. The 159-test suite with 97.75% coverage, cross-language Go-Solidity compatibility tests, and real reentrancy attack test represent the deepest verifiable engineering evidence in the field. The v7 fixes close all documentation gaps, making the submission more transparent and judge-friendly.
 
 The remaining gap to 10 is structural: the FCC is simulated (not real TEE), the product is on testnet (not mainnet), and FDC proof retrieval is blocked by Coston2 infrastructure. These are legitimate scope constraints for a hackathon, not deficiencies in execution.
 

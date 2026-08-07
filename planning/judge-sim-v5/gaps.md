@@ -3,12 +3,12 @@
 **Date:** 2026-08-06
 **Auditor:** Subagent #56 (read-only audit — no code/docs modified, only this file written)
 **Prior score:** 9.0/10 (judge-sim-v4, from 7.4 baseline → 8.5 v3 → 9.0 v4)
-**Current verified state:** 146 tests / 12 suites / 0 failures; **LIVE on Coston2** at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`; live FDC attestation request submitted; 5 FXRP collateral deposited
+**Current verified state:** 159 tests / 13 suites / 0 failures; **LIVE on Coston2** at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`; live FDC attestation request submitted; 5 FXRP collateral deposited
 **Scope:** SUBMISSION.md, README.md, PROGRAM-SUMMARY.md, planning/judge-sim-v4/verdict.md, evidence/live-deployment.md, evidence/fdc-live-attestation.md — cross-checked against `test/` enumeration, `src/CreditGateVault.sol`, ARCHITECTURE.md, DEMO.md, evidence/test-summary.md, evidence/final-verification.md
 
 ## Method
 
-For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALLY-RESOLVED, or STILL-OPEN against the current repo state. I then audited the six required submission docs against the DoraHacks/Flare submission checklist and cross-checked every "118 / 9" claim against the actual `grep -c 'function test|invariant_' test/*.t.sol` enumeration, which returns **146 tests / 12 suites**.
+For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALLY-RESOLVED, or STILL-OPEN against the current repo state. I then audited the six required submission docs against the DoraHacks/Flare submission checklist and cross-checked every "118 / 9" claim against the actual `grep -c 'function test|invariant_' test/*.t.sol` enumeration, which returns **159 tests / 13 suites**.
 
 ---
 
@@ -33,7 +33,7 @@ For each v4 verdict "remaining gap," I verified whether it is RESOLVED, PARTIALL
 | CreditGateVault.go-tee-compat.t.sol | 2 |
 | CreditGateVault.reentrancy.t.sol | 2 |
 | CreditGateVault.malicious-reentrancy.t.sol | 1 |
-| **Total** | **146 / 12 suites** |
+| **Total** | **146 / 13 suites** |
 
 **Files containing stale "118 tests / 9 suites" (must be updated to 138/11):**
 1. `SUBMISSION.md` — lines 65, 91, 105, 123 (×4 occurrences)

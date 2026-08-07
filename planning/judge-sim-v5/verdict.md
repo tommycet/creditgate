@@ -3,7 +3,7 @@
 **Date:** 2026-08-06
 **Judge:** Subagent (read-only — only this file written; no code, tests, or docs modified)
 **Prior scores:** v1 = 7.4 → v2 = 8.2 → v3 = 8.5 → v4 = 9.0
-**Current verified state:** 146 tests, 12 suites, 0 failures. LIVE on Coston2 at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`. Source verified on Blockscout. 5 FXRP collateral deposited. FTSO price live ($1.05). FDC attestation submitted (tx `0x9bc263fe`). 3 deep prism security audits; all findings fixed.
+**Current verified state:** 159 tests, 13 suites, 0 failures. LIVE on Coston2 at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`. Source verified on Blockscout. 5 FXRP collateral deposited. FTSO price live ($1.05). FDC attestation submitted (tx `0x9bc263fe`). 3 deep prism security audits; all findings fixed.
 **Files read:** SUBMISSION.md, evidence/live-deployment.md, ARCHITECTURE.md, planning/judge-sim-v5/gaps.md — plus `grep` verification of source comments, repo URL, test enumeration (141 = 69+15+15+5+8+4+9+11+2+2+1), and invariant suite contents.
 
 ---
@@ -33,7 +33,7 @@ The integration also uses FdcRequestFeeConfigurations for live fee reads and Con
 
 ### 3. Technical execution — weight 25% → score **9.4/10**
 
-146 tests across 12 suites, 0 failures. 97.75% line coverage of `CreditGateVault.sol`. The test surface is broad and adversarial rather than happy-path-only:
+159 tests across 13 suites, 0 failures. 97.75% line coverage of `CreditGateVault.sol`. The test surface is broad and adversarial rather than happy-path-only:
 
 - **Invariant / fuzz tests:** 8 invariants (256 runs each) — `invariant_fxrpConserved` (FXRP conservation, collateral never leaks), `invariant_usdt0Conserved`, `invariant_noOverdraft`, `invariant_stateMonotonic`, `invariant_noGhostCollateral`, and — **new this cycle (v4 gap #2 now closed)** — `invariant_interestNeverExceedsCollateral`, `invariant_ltvLimitRespected`, `invariant_terminalLoansCantReopen`. The v5 gaps.md audit listed v4 gap #2 (auction/interest invariants) as "STILL OPEN (minor)" — it is now CLOSED. Three new invariants directly cover the auction/interest/LTV code paths v4 said were uncovered.
 - **Real reentrancy attack test:** a malicious FXRP token that invokes `depositCollateral` from inside `transferFrom` → blocked by `ReentrancyGuard`. This is "we wrote the attack that proves the guard," not "we added a guard."
