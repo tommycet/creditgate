@@ -83,7 +83,7 @@ Chain ID 114 · RPC `https://coston2-api.flare.network/ext/C/rpc` · Explorer `h
 8. **Live deployment on Coston2** — vault at `0x5e74d0a48f6b903b1b1d369e93b2fb9ca6a99939`, 5 FXRP collateral deposited, FTSO price feed live ($1.05)
 9. **Live FDC attestation with real XRPL testnet payment** — XRPL tx `0xb9f346a3…4720` (ledger 19689886) → Coston2 FDC attestation tx `0x7fd6c89d…4a42` (block 33712406, status=1), voting round 1417946 finalized on-chain (`isFinalized=true`). DA Layer proof retrieval blocked by Coston2 testXRP indexing infra limit (honestly documented in [FDC Integration](#fdc-integration)).
 10. **Source verified on Blockscout** — judges can inspect the verified Solidity source
-11. **3 adversarial security audits** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed (see [Security](#security--audit-verified))
+11. **3 internal security reviews** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed (see [Security](#security--review-verified))
 12. **5 critical security edge-case tests** — negative FDC amount overflow, cross-loan proof replay, past-deadline interest accrual, paused-vault liquidation, LTV non-retroactive
 13. **191-test Foundry suite across 19 suites** — grew from 91 → 191 during the program
 14. **Frontend `/docs` section** — consolidated evidence and reports into browseable Next.js pages (10 routes, see [Frontend](#frontend))
@@ -267,7 +267,7 @@ npm run dev    # http://localhost:3000
 | `/docs/architecture` | Architecture | State machine diagram, EIP-191 payload layout, FDC proof verification flow, Flare primitive addresses. Mirrors the [Architecture](#architecture) section of this README. |
 | `/docs/deployment` | Deployment | Coston2 deployment record: vault address, deploy/approve/deposit txs, live vault state queries, FTSO price feed, contract references with "Has code" verification. Mirrors [Live Deployment](#live-deployment-evidence). |
 | `/docs/fdc-verify` | FDC verify | The live XRPL testnet payment → Coston2 FDC attestation → proof retrieval walkthrough. Real XRPL tx hash, FDC attestation tx, voting round finalization status, and the honestly-documented DA Layer indexing limitation. Mirrors [FDC Integration](#fdc-integration). |
-| `/docs/security` | Security | The 5 audit-verified fixes (M1/M2/L1/L2/L4/L5) with severity, fix, commit, and verifying test. Mirrors [Security](#security--audit-verified). |
+| `/docs/security` | Security | The 5 review-verified fixes (M1/M2/L1/L2/L4/L5) with severity, fix, commit, and verifying test. Mirrors [Security](#security--review-verified). |
 | `/docs/submission` | Submission | Bounty, target user, problem/solution, what was newly built, evidence pointers, team, roadmap. Mirrors the project framing sections of this README. |
 | `/docs/testing` | Testing | Full test suite breakdown: all 19 suites, 191 tests, coverage %, per-suite one-liner, reproduce commands. Mirrors [Test Suite](#test-suite--191-tests--19-suites). |
 
@@ -419,9 +419,9 @@ If a "collateral" test surfaces `InsufficientCollateral(2.5e24 …) != Insuffici
 
 ---
 
-## Security — Audit-Verified
+## Security — Review-Verified
 
-All findings from the read-only security audit (`planning/security-audit/verdict.md` = **PASS-WITH-NOTES**) were remediated. No Critical issues. Final test status: **191/191 passing, 19 suites, 0 failures**.
+All findings from the internal security review (`planning/security-audit/verdict.md` = **PASS-WITH-NOTES**) were remediated. No Critical issues. Final test status: **191/191 passing, 19 suites, 0 failures**.
 
 | ID | Severity | Issue | Fix | Commit | Verifying test |
 |----|----------|-------|-----|--------|----------------|
@@ -648,7 +648,7 @@ Highlight three categories:
 - **Cross-language TEE compat** (`tee-compat.t.sol`, 4 tests) — Go + Python handler signatures accepted by Solidity `ecrecover`. Tamper one byte → `InvalidEligibilitySigner`. *"The TEE and the vault agree on bytes."*
 - **Invariant tests** (`invariant.t.sol`, 8 tests) — FXRP conservation + USDT0 solvency + no overdraft + state ordering + no ghost collateral + interest ceiling + LTV limit + terminal-loan finality, across 256 runs each.
 
-> **Security audit: PASS-WITH-NOTES, all fixes applied** (M1 sig s/v bounds; M2 nonce rotation; L1 expiry re-check in `drawLoan`; L2 FTSO future-timestamp underflow guard; L4 default recovery; L5 source-address snapshot at draw time).
+> **Security review: PASS-WITH-NOTES, all fixes applied** (M1 sig s/v bounds; M2 nonce rotation; L1 expiry re-check in `drawLoan`; L2 FTSO future-timestamp underflow guard; L4 default recovery; L5 source-address snapshot at draw time).
 
 ### Act 5: Flare Primitives (15s)
 

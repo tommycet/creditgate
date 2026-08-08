@@ -8,7 +8,7 @@ issues. The audit's INFO-level observations (I1–I4) are documented in the verd
 action items requiring code changes; this file covers the action items (M1, M2, L1, L2, L4, L5).
 
 **Audit verdict file:** \`planning/security-audit/verdict.md\`
-**Final test status:** 141/141 passing, 11 suites, 0 failures (see \`test-summary.md\`).
+**Final test status:** 191/191 passing, 19 suites, 0 failures (see \`test-summary.md\`).
 
 ---
 
@@ -34,7 +34,7 @@ if (recovered == address(0) || recovered != teeAuthority) {
 \`\`\`
 
 **Commit hash.** \`2884cca8ddf84057733907528f2acfa1c39adfb4\`
-(\`security: apply 4 audit fixes (M1, M2, L1, L5) — 68/68 tests green\`)
+(\`security: apply 4 review fixes (M1, M2, L1, L5) — 68/68 tests green\`)
 
 **Verifying test.** \`test_submitEligibility_revertsIfWrongSigner\`
 (\`test/CreditGateVault.t.sol:404\`) — submits an attestation signed with a non-authority key and
@@ -69,7 +69,7 @@ After revocation, any outstanding (pre-revocation) attestation has a stale nonce
 the new snapshot a fresh \`requestEligibility\` will produce, so it cannot be replayed.
 
 **Commit hash.** \`2884cca8ddf84057733907528f2acfa1c39adfb4\`
-(\`security: apply 4 audit fixes (M1, M2, L1, L5)\`)
+(\`security: apply 4 review fixes (M1, M2, L1, L5)\`)
 
 **Verifying tests.**
 - \`test_revokeEligibility_bumpsVersion\` (\`test/CreditGateVault.t.sol:772\`) — asserts the
@@ -99,7 +99,7 @@ The state machine now refuses \`ELIGIBLE → FUNDED\` once \`block.timestamp\` r
 expiry, closing the window.
 
 **Commit hash.** \`2884cca8ddf84057733907528f2acfa1c39adfb4\`
-(\`security: apply 4 audit fixes (M1, M2, L1, L5)\`)
+(\`security: apply 4 review fixes (M1, M2, L1, L5)\`)
 
 **Verifying test.** \`test_submitEligibility_revertsIfExpired\`
 (\`test/CreditGateVault.t.sol:375\`) — signs an attestation whose \`expiry\` is one second in the
@@ -200,7 +200,7 @@ if (proof.payment.receivingAddressHash != expectedReceiver) {
 Re-binding after draw no longer affects the bound proof.
 
 **Commit hash.** \`2884cca8ddf84057733907528f2acfa1c39adfb4\`
-(\`security: apply 4 audit fixes (M1, M2, L1, L5)\`)
+(\`security: apply 4 review fixes (M1, M2, L1, L5)\`)
 
 **Verifying test.** \`test_submitRepaymentProof_receiverMustMatchRegistration\`
 (\`test/CreditGateVault.t.sol:1112\`) — draws a loan, then re-binds the borrower's XRPL
@@ -222,5 +222,5 @@ Re-binding after draw does NOT change the expected receiver."*
 | L4 | Low      | Defaulted collateral permanently locked in vault | \`f7c18a4\` | \`test_recoverDefaultedCollateral_happyPath\` + 2 access-control tests |
 | L5 | Low      | \`registerXRPLAddress\` re-bindable after draw | \`2884cca\` | \`test_submitRepaymentProof_receiverMustMatchRegistration\` |
 
-All commits are on the main branch of \`git log\` and reproduce to the 141/141 passing sweep (11 suites, 0 failures).
+All commits are on the main branch of \`git log\` and reproduce to the 191/191 passing sweep (19 suites, 0 failures).
 `;

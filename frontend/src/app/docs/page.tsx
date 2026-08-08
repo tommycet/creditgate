@@ -6,7 +6,7 @@ const docs = [
   { slug: "architecture", title: "Architecture", desc: "System overview, Flare primitives, state machine, risk paths" },
   { slug: "submission", title: "Submission", desc: "Bounty, description, Flare usage, newly built, roadmap" },
   { slug: "deployment", title: "Live Deployment", desc: "Vault address, tx hashes, FDC attestation, round finalization" },
-  { slug: "testing", title: "Testing", desc: "141 tests, 11 suites, 8 invariants, 97.75% coverage" },
+  { slug: "testing", title: "Testing", desc: "191 tests, 19 suites, 8 invariants, 97.75% coverage" },
   { slug: "security", title: "Security", desc: "Audit findings (M1/M2/L1/L2/L4/L5) and fixes" },
   { slug: "fdc-verify", title: "FDC Real Verify", desc: "Real XRPL testnet tx → FDC attestation, verify path evidence" },
 ];
