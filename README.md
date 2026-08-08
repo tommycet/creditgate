@@ -61,7 +61,7 @@ This is the **first protocol to bind a private credit eligibility check (FCC) to
 | FdcVerification | `0x906507E0B64bcD494Db73bd0459d1C667e14B933` |
 | FdcHub | `0x48aC463d7975828989331F4De43341627b9c5f1D` |
 | FdcRequestFeeConfigurations | `0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e` |
-| ContractRegistry | `0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019` |
+| ContractRegistry | `0xaD67FE5151d5fC73D4540AE4f252031F63900D3F` |
 
 Chain ID 114 · RPC `https://coston2-api.flare.network/ext/C/rpc` · Explorer `https://coston2-explorer.flare.network`
 
@@ -86,7 +86,7 @@ Chain ID 114 · RPC `https://coston2-api.flare.network/ext/C/rpc` · Explorer `h
 11. **3 adversarial security audits** — M1 (sig malleability), M2 (nonce), L1/L2/L4/L5 — all fixed (see [Security](#security--audit-verified))
 12. **5 critical security edge-case tests** — negative FDC amount overflow, cross-loan proof replay, past-deadline interest accrual, paused-vault liquidation, LTV non-retroactive
 13. **191-test Foundry suite across 19 suites** — grew from 91 → 191 during the program
-14. **Frontend `/docs` section** — consolidated evidence and reports into browseable Next.js pages (8 routes, see [Frontend](#frontend))
+14. **Frontend `/docs` section** — consolidated evidence and reports into browseable Next.js pages (10 routes, see [Frontend](#frontend))
 15. **Protocol reserve fund** — 1% of interest-equivalent collateral, owner-withdrawable (Aave Safety Module pattern)
 16. **Borrower reputation tracking** — on-chain history (totalBorrowed, totalRepaid, loansCompleted, loansDefaulted) powering FCC credit scoring (Aave/ARCx pattern)
 17. **24h grace period** — borrower protection before liquidation; 24-hour window after deadline prevents instant seizure (Aave V3/Compound V3 pattern)
